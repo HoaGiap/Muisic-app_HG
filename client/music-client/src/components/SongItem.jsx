@@ -7,27 +7,43 @@ import {
 } from "./playerState";
 import { api } from "../api";
 
-// Tìm hoặc tạo playlist Favorites (server dùng uid từ token)
+// Tìm hoặc tạo playlist Favorites (server suy ra user từ token)
 async function getOrCreateFavorites() {
-  // KHÔNG gửi userId nữa
   const { data } = await api.get("/playlists");
   let fav = data.find(
     (p) => (p.name || "").trim().toLowerCase() === "favorites"
   );
   if (!fav) {
-    const res = await api.post("/playlists", { name: "Favorites" }); // KHÔNG gửi userId
+    const res = await api.post("/playlists", { name: "Favorites" });
     fav = res.data;
   }
   return fav;
 }
 
-// props: song, list (mảng hiện có trên màn), index (vị trí trong list),
-//        playlistId (nếu đang render trong 1 playlist), onChanged (reload)
-export default function SongItem({ song, list, index, playlistId, onChanged }) {
+/**
+ * props:
+ *  - song: object bài hát
+ *  - list, index: danh sách hiện tại & vị trí -> để phát liên tục
+ *  - playlistId: nếu đang render trong 1 playlist -> hiện nút "− Remove"
+ *  - onChanged: callback reload sau khi add/remove/delete
+ *  - onDelete:  (tùy chọn)
+ *      * boolean true -> hiện nút Xoá và tự gọi API DELETE
+ *      * function (songId) -> tự xử lý xoá ở ngoài (ví dụ gọi load trang)
+ */
+export default function SongItem({
+  song,
+  list,
+  index,
+  playlistId,
+  onChanged,
+  onDelete,
+}) {
   const setCurrent = useSetAtom(currentTrackAtom);
   const setPlaying = useSetAtom(playingAtom);
   const setQueue = useSetAtom(queueAtom);
   const setQueueIndex = useSetAtom(queueIndexAtom);
+
+  const sid = song?._id ?? song?.id;
 
   const playNow = () => {
     const q = Array.isArray(list) && list.length ? list : [song];
@@ -41,9 +57,8 @@ export default function SongItem({ song, list, index, playlistId, onChanged }) {
   const addToFavorites = async () => {
     try {
       const fav = await getOrCreateFavorites();
-      const songId = song?._id ?? song?.id;
-      if (!songId) return alert("Không tìm thấy songId hợp lệ.");
-      await api.post("/playlists/add", { playlistId: fav._id, songId });
+      if (!sid) return alert("Không tìm thấy songId hợp lệ.");
+      await api.post("/playlists/add", { playlistId: fav._id, songId: sid });
       alert("Đã thêm vào Favorites!");
     } catch (err) {
       if (err?.response?.status === 401) {
@@ -59,9 +74,8 @@ export default function SongItem({ song, list, index, playlistId, onChanged }) {
 
   const removeFromPlaylist = async () => {
     try {
-      const songId = song?._id ?? song?.id;
-      if (!songId || !playlistId) return;
-      await api.post("/playlists/remove", { playlistId, songId });
+      if (!sid || !playlistId) return;
+      await api.post("/playlists/remove", { playlistId, songId: sid });
       onChanged && onChanged();
     } catch (err) {
       if (err?.response?.status === 401) {
@@ -71,6 +85,42 @@ export default function SongItem({ song, list, index, playlistId, onChanged }) {
         alert("Xoá khỏi playlist thất bại.");
       }
     }
+  };
+
+  const deleteSongHere = async () => {
+    try {
+      if (!sid) return;
+      if (!confirm("Xoá bài hát này?")) return;
+      await api.delete(`/songs/${sid}`);
+      onChanged && onChanged();
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        alert("Bạn cần đăng nhập.");
+      } else if (err?.response?.status === 403) {
+        alert("Bạn không phải chủ sở hữu bài hát này.");
+      } else {
+        console.error(err);
+        alert("Xoá bài thất bại.");
+      }
+    }
+  };
+
+  // Quy tắc hiển thị nút phụ:
+  // 1) Nếu truyền onDelete -> hiện nút 🗑 Xoá
+  //    - nếu onDelete là function: gọi function(sid)
+  //    - nếu onDelete === true: gọi deleteSongHere()
+  // 2) Nếu có playlistId -> hiện nút − Remove
+  // 3) Ngược lại -> hiện nút ＋ Favorites
+  const renderSecondaryButton = () => {
+    if (onDelete) {
+      const handle =
+        typeof onDelete === "function" ? () => onDelete(sid) : deleteSongHere;
+      return <button onClick={handle}>🗑 Xoá</button>;
+    }
+    if (playlistId) {
+      return <button onClick={removeFromPlaylist}>− Remove</button>;
+    }
+    return <button onClick={addToFavorites}>＋ Favorites</button>;
   };
 
   return (
@@ -91,11 +141,7 @@ export default function SongItem({ song, list, index, playlistId, onChanged }) {
       <div style={{ opacity: 0.7 }}>{song.artist}</div>
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <button onClick={playNow}>▶ Phát</button>
-        {playlistId ? (
-          <button onClick={removeFromPlaylist}>− Remove</button>
-        ) : (
-          <button onClick={addToFavorites}>＋ Favorites</button>
-        )}
+        {renderSecondaryButton()}
       </div>
     </div>
   );
