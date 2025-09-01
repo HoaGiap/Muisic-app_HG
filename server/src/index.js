@@ -15,18 +15,37 @@ dotenv.config();
 const app = express();
 
 /* ====================== CORS ====================== */
-// Cho phép nhiều origin, phân tách bởi dấu phẩy trong ALLOWED_ORIGIN
-const allowList = (process.env.ALLOWED_ORIGIN || "")
+// ALLOWED_ORIGIN có thể là:
+//   - https://music-app-hg.vercel.app
+//   - music-app-hg.vercel.app
+//   - *.vercel.app  (hỗ trợ wildcard)
+const normalize = (s = "") => s.toLowerCase().trim().replace(/\/+$/, ""); // bỏ slash cuối
+
+const toHost = (s = "") => normalize(s).replace(/^https?:\/\//, ""); // bỏ scheme
+
+const rawList = (process.env.ALLOWED_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-const isAllowedOrigin = (origin) =>
-  !origin || allowList.length === 0 || allowList.includes(origin);
+const allowList = rawList.map(toHost); // lưu dưới dạng host (không scheme)
+
+const isAllowedHost = (host) => {
+  if (!host || allowList.length === 0) return true; // allow all nếu chưa cấu hình
+  return allowList.some((rule) => {
+    if (rule.startsWith("*.")) {
+      const base = rule.slice(2);
+      return host === base || host.endsWith("." + base);
+    }
+    return host === rule;
+  });
+};
 
 const corsOptions = {
   origin: (origin, cb) => {
-    if (isAllowedOrigin(origin)) return cb(null, true);
+    // origin có scheme; chuyển sang host để so
+    const host = toHost(origin || "");
+    if (!origin || isAllowedHost(host)) return cb(null, true);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
@@ -35,33 +54,33 @@ const corsOptions = {
   maxAge: 86400,
 };
 
-// Trả CORS cho tất cả request
 app.use(cors(corsOptions));
 
-// ✅ TỰ XỬ LÝ PREFLIGHT (không dùng '*' để tránh lỗi Express 5)
+// TỰ xử lý preflight (tránh dùng pattern '*' của Express 5)
 app.use((req, res, next) => {
   if (req.method !== "OPTIONS") return next();
-
-  const origin = req.headers.origin;
-  if (!isAllowedOrigin(origin)) {
-    return res.status(403).send("CORS not allowed");
+  const origin = req.headers.origin || "";
+  const host = toHost(origin);
+  if (!origin || isAllowedHost(host)) {
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    res.setHeader("Access-Control-Max-Age", "86400");
+    return res.sendStatus(204);
   }
-
-  // Header CORS cho preflight
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Max-Age", "86400");
-  return res.sendStatus(204); // preflight OK
+  return res.status(403).send("CORS not allowed");
 });
 /* ================================================= */
 
@@ -70,12 +89,10 @@ app.use(express.json());
 
 app.get("/", (_req, res) => res.send("Backend is running 🚀"));
 
-// Routes
 app.use("/api/songs", songRoutes); // public
 app.use("/api/playlists", requireAuth, playlistRoutes); // cần token
 app.use("/api/upload", requireAuth, uploadRoutes); // cần token
 
-// DB & start
 const PORT = process.env.PORT || 8080;
 
 mongoose
