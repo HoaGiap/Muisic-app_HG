@@ -1,0 +1,15 @@
+### Lấy danh sách bài hát
+GET http://localhost:8080/api/songs
+
+### Tạo 1 bài hát mới
+POST http://localhost:8080/api/songs
+Content-Type: application/json
+
+{
+  "title": "Lạc Trôi",
+  "artist": "Sơn Tùng M-TP",
+  "duration": 250,
+  "audioUrl": "https://res.cloudinary.com/xxx/video/upload/lac-troi.mp3",
+  "coverUrl": "https://res.cloudinary.com/xxx/image/upload/lac-troi.jpg"
+}
+
