@@ -12,27 +12,34 @@ import { requireAuth } from "./middlewares/auth.js";
 
 dotenv.config();
 
-console.log("Booting API...");
-
-// ✅ PHẢI tạo app TRƯỚC rồi mới dùng app.use(...)
 const app = express();
 
-// Middlewares
-app.use(cors());
+// CORS theo ENV (ALLOWED_ORIGIN có thể là 1 hoặc nhiều, cách nhau dấu phẩy)
+const allowList = (process.env.ALLOWED_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowList.length === 0 || allowList.includes(origin))
+        return cb(null, true);
+      return cb(new Error("Not allowed by CORS"));
+    },
+  })
+);
+
 app.use(morgan("dev"));
 app.use(express.json());
 
-// Health check
 app.get("/", (_req, res) => res.send("Backend is running 🚀"));
 
-// Routes
-app.use("/api/songs", songRoutes);
-app.use("/api/playlists", requireAuth, playlistRoutes);
-app.use("/api/upload", requireAuth, uploadRoutes);
+app.use("/api/songs", songRoutes); // public
+app.use("/api/playlists", requireAuth, playlistRoutes); // cần token
+app.use("/api/upload", requireAuth, uploadRoutes); // cần token
 
 const PORT = process.env.PORT || 8080;
-
-// Kết nối DB rồi mới listen
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
@@ -41,6 +48,4 @@ mongoose
       console.log(`Server is running on http://localhost:${PORT}`)
     );
   })
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-  });
+  .catch((err) => console.error("❌ MongoDB connection error:", err.message));

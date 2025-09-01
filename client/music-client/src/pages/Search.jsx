@@ -5,12 +5,25 @@ import SongItem from "../components/SongItem.jsx";
 export default function Search() {
   const [q, setQ] = useState("");
   const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let ignore = false;
     const t = setTimeout(() => {
-      api.get("/songs", { params: { q } }).then((r) => setSongs(r.data));
-    }, 300);
-    return () => clearTimeout(t);
+      setLoading(true);
+      api
+        .get("/songs", { params: { q } })
+        .then((r) => {
+          if (!ignore) setSongs(r.data);
+        })
+        .finally(() => {
+          if (!ignore) setLoading(false);
+        });
+    }, 300); // debounce 300ms
+    return () => {
+      ignore = true;
+      clearTimeout(t);
+    };
   }, [q]);
 
   return (
@@ -19,9 +32,12 @@ export default function Search() {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Nhập tên bài hát/ca sĩ…"
-        style={{ padding: 8, width: "100%", marginBottom: 12 }}
+        placeholder="Nhập tên bài hát hoặc ca sĩ…"
+        style={{ padding: 8, width: "100%", maxWidth: 420, marginBottom: 12 }}
       />
+      {loading && <p>Đang tìm…</p>}
+      {!loading && q && songs.length === 0 && <p>Không tìm thấy kết quả.</p>}
+
       <div
         style={{
           display: "grid",
@@ -29,8 +45,8 @@ export default function Search() {
           gap: 12,
         }}
       >
-        {songs.map((s) => (
-          <SongItem key={s._id || s.id} song={s} />
+        {songs.map((s, i) => (
+          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
         ))}
       </div>
     </div>

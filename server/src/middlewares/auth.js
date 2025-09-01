@@ -1,21 +1,26 @@
 // server/src/middlewares/auth.js
 import admin from "firebase-admin";
-import { readFile } from "fs/promises";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Cách 1: dán nguyên JSON service account vào env FIREBASE_SERVICE_ACCOUNT
+const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+  : null;
 
-// Đường dẫn tới file service account (đặt ở server/firebase-service-account.json)
-const svcPath = join(__dirname, "../../firebase-service-account.json");
-
-// Đọc JSON 1 lần ở top-level
-const serviceAccount = JSON.parse(await readFile(svcPath, "utf8"));
+// Cách 2: set 3 biến riêng lẻ (nhớ replace \\n)
+const credFromPieces =
+  process.env.FIREBASE_PROJECT_ID &&
+  process.env.FIREBASE_CLIENT_EMAIL &&
+  process.env.FIREBASE_PRIVATE_KEY
+    ? {
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      }
+    : null;
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(svcJson || credFromPieces),
   });
 }
 
