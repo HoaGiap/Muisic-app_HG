@@ -14,38 +14,59 @@ dotenv.config();
 
 const app = express();
 
-/* ====================== CORS (theo ENV) ====================== */
-// Cho phép 1 hoặc nhiều origin, cách nhau dấu phẩy trong ALLOWED_ORIGIN
+/* ====================== CORS ====================== */
+// Cho phép nhiều origin, phân tách bởi dấu phẩy trong ALLOWED_ORIGIN
 const allowList = (process.env.ALLOWED_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
+const isAllowedOrigin = (origin) =>
+  !origin || allowList.length === 0 || allowList.includes(origin);
+
 const corsOptions = {
   origin: (origin, cb) => {
-    // origin = undefined với request từ curl/Postman — vẫn cho qua
-    if (!origin || allowList.length === 0 || allowList.includes(origin)) {
-      return cb(null, true);
-    }
+    if (isAllowedOrigin(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  maxAge: 86400, // cache preflight 1 ngày
+  maxAge: 86400,
 };
 
-// Áp dụng CORS cho tất cả request trước khi vào routes
+// Trả CORS cho tất cả request
 app.use(cors(corsOptions));
 
-// ⚠️ Express 5 không hỗ trợ '*' => dùng mẫu bắt mọi đuôi dưới /api
-app.options("/api/:path(*)", cors(corsOptions));
-// (tùy chọn) nếu cần preflight cho route gốc
-app.options("/", cors(corsOptions));
-/* ============================================================ */
+// ✅ TỰ XỬ LÝ PREFLIGHT (không dùng '*' để tránh lỗi Express 5)
+app.use((req, res, next) => {
+  if (req.method !== "OPTIONS") return next();
+
+  const origin = req.headers.origin;
+  if (!isAllowedOrigin(origin)) {
+    return res.status(403).send("CORS not allowed");
+  }
+
+  // Header CORS cho preflight
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400");
+  return res.sendStatus(204); // preflight OK
+});
+/* ================================================= */
 
 app.use(morgan("dev"));
-app.use(express.json()); // nếu cần upload JSON lớn: { limit: "5mb" }
+app.use(express.json());
 
 app.get("/", (_req, res) => res.send("Backend is running 🚀"));
 
@@ -54,7 +75,7 @@ app.use("/api/songs", songRoutes); // public
 app.use("/api/playlists", requireAuth, playlistRoutes); // cần token
 app.use("/api/upload", requireAuth, uploadRoutes); // cần token
 
-// Kết nối DB & khởi động server
+// DB & start
 const PORT = process.env.PORT || 8080;
 
 mongoose
