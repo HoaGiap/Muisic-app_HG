@@ -14,21 +14,28 @@ dotenv.config();
 
 const app = express();
 
-// CORS theo ENV (ALLOWED_ORIGIN có thể là 1 hoặc nhiều, cách nhau dấu phẩy)
+// ===== CORS theo ENV (hỗ trợ preflight) =====
 const allowList = (process.env.ALLOWED_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin || allowList.length === 0 || allowList.includes(origin))
-        return cb(null, true);
-      return cb(new Error("Not allowed by CORS"));
-    },
-  })
-);
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin || allowList.length === 0 || allowList.includes(origin))
+      return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  maxAge: 86400, // cache preflight 1 ngày
+};
+
+app.use(cors(corsOptions));
+// ✅ trả CORS cho preflight (OPTIONS)
+app.options("*", cors(corsOptions));
+// ============================================
 
 app.use(morgan("dev"));
 app.use(express.json());
