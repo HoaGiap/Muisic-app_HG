@@ -3,7 +3,7 @@ import { getIdToken } from "./auth/firebase";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api",
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Interceptor: luôn gửi Authorization: Bearer <idToken> nếu có

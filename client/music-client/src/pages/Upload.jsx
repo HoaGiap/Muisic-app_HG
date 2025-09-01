@@ -5,7 +5,10 @@ import { auth } from "../auth/firebase";
 
 export default function Upload() {
   const [user, setUser] = useState(null);
-  useEffect(() => auth?.onAuthStateChanged(setUser), []);
+  useEffect(() => {
+    const unsub = auth?.onAuthStateChanged(setUser);
+    return () => unsub && unsub();
+  }, []);
 
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -23,11 +26,13 @@ export default function Upload() {
     );
   }
 
+  // Upload 1 file lên Cloudinary (tăng timeout 120s)
   const doUpload = async (file) => {
     const form = new FormData();
     form.append("file", file);
     const { data } = await api.post("/upload?folder=music-app", form, {
       headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120_000, // 120s để tránh timeout do Render ngủ + file lớn
     });
     return data; // { url, public_id, duration? }
   };
@@ -39,10 +44,18 @@ export default function Upload() {
       setMsg("Thiếu tiêu đề / ca sĩ / file audio");
       return;
     }
+
     try {
       setBusy(true);
+
+      // Đánh thức backend Render trước (nếu đang ngủ)
+      await api.get("/songs", { timeout: 15_000 }).catch(() => {});
+
+      // Upload audio (+ ảnh bìa nếu có)
       const audio = await doUpload(audioFile);
       const cover = coverFile ? await doUpload(coverFile) : { url: "" };
+
+      // Tạo bản ghi bài hát
       const body = {
         title,
         artist,
@@ -51,6 +64,7 @@ export default function Upload() {
         coverUrl: cover.url || null,
       };
       await api.post("/songs", body);
+
       setMsg("✅ Tạo bài hát thành công!");
       setTitle("");
       setArtist("");
@@ -59,7 +73,7 @@ export default function Upload() {
       (document.getElementById("audio-input") || {}).value = "";
       (document.getElementById("cover-input") || {}).value = "";
     } catch (err) {
-      console.error(err);
+      console.error("Upload error detail:", err.toJSON ? err.toJSON() : err);
       setMsg("❌ Lỗi: " + (err.response?.data?.error || err.message));
     } finally {
       setBusy(false);
