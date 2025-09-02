@@ -15,7 +15,6 @@ export default function MyUploads() {
   const load = async (p = 1) => {
     setLoading(true);
     try {
-      // server lọc bài của chính bạn theo token
       const r = await api.get("/songs", {
         params: { owner: "me", page: p, limit: 24 },
       });
@@ -38,7 +37,7 @@ export default function MyUploads() {
     if (!confirm("Xoá bài hát này?")) return;
     try {
       await api.delete(`/songs/${id}`);
-      await load(page); // ✅ reload đúng trang hiện tại
+      await load(page);
       alert("Đã xoá!");
     } catch (e) {
       const s = e?.response?.status;
@@ -69,7 +68,7 @@ export default function MyUploads() {
             song={s}
             list={data.items}
             index={i}
-            onDelete={(sid) => deleteOne(sid)} // ✅ truyền function để tự reload
+            onDelete={(sid) => deleteOne(sid)}
           />
         ))}
       </div>

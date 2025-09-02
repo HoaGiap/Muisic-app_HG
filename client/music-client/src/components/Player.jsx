@@ -8,6 +8,7 @@ import {
   shuffleAtom,
   repeatAtom,
 } from "./playerState";
+import { api } from "../api";
 
 export default function Player() {
   const [current, setCurrent] = useAtom(currentTrackAtom);
@@ -19,12 +20,18 @@ export default function Player() {
 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // 🔊 âm lượng & mute (ghi nhớ localStorage)
+  const [vol, setVol] = useState(() => {
+    const v = Number(localStorage.getItem("vol"));
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  });
+  const [muted, setMuted] = useState(false);
+
   const audioRef = useRef(null);
+  const repeatOnceRef = useRef(0); // 0=chưa lặp, 1=đã lặp 1 lần
 
-  // Cờ dùng cho chế độ "lặp 1 lần"
-  const repeatOnceRef = useRef(0); // 0 = chưa lặp, 1 = đã lặp 1 lần
-
-  // Khi đổi bài -> cập nhật current + reset progress và reset cờ "lặp 1 lần"
+  // đổi bài -> reset
   useEffect(() => {
     if (queue[idx]) {
       setCurrent(queue[idx]);
@@ -33,7 +40,7 @@ export default function Player() {
     }
   }, [idx, queue, setCurrent]);
 
-  // Play/Pause theo state
+  // play/pause theo state
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -41,11 +48,26 @@ export default function Player() {
     else a.pause();
   }, [playing, current]);
 
-  // Phím tắt
+  // set volume & muted vào element
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.volume = vol;
+    localStorage.setItem("vol", String(vol));
+  }, [vol]);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.muted = muted;
+  }, [muted]);
+
+  // (tuỳ chọn) tăng plays nếu bạn đã làm API này
+  useEffect(() => {
+    if (current?._id) api.post(`/songs/${current._id}/play`).catch(() => {});
+  }, [current?._id]);
+
+  // phím tắt
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
-        return;
+      if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
       if (e.code === "Space") {
         e.preventDefault();
         setPlaying((p) => !p);
@@ -55,21 +77,21 @@ export default function Player() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onTimeUpdate = () => {
     const a = audioRef.current;
     setProgress(a?.currentTime || 0);
+  };
+  const onLoadedMetadata = () => {
+    const a = audioRef.current;
     setDuration(a?.duration || 0);
   };
 
-  // ---------- NEXT/PREV ----------
-  // manual = true nếu do người dùng bấm nút
+  // -------- NEXT / PREV ----------
   const goNext = (manual = false) => {
     if (!queue.length) return;
-
-    // Nếu đang repeat 1 bài vô hạn -> Next thủ công vẫn phải chuyển bài
-    // (hành vi thường thấy trên các app). Tức là chỉ onEnded mới giữ nguyên.
     if (shuffle) {
       setIdx((i) => {
         if (queue.length === 1) return 0;
@@ -80,17 +102,13 @@ export default function Player() {
       setPlaying(true);
       return;
     }
-
     const last = queue.length - 1;
-
     if (manual) {
-      // Bấm Next: luôn chuyển, quấn về đầu khi ở cuối
       setIdx((i) => (i < last ? i + 1 : 0));
       setPlaying(true);
       return;
     }
-
-    // Tự hết bài (onEnded) sẽ được xử lý ở hàm onEnded theo repeat-mode
+    // onEnded xử lý tự động
   };
 
   const goPrev = () => {
@@ -99,42 +117,27 @@ export default function Player() {
     setPlaying(true);
   };
 
-  // ---------- KẾT THÚC BÀI ----------
+  // -------- KẾT THÚC BÀI ----------
   const onEnded = () => {
     const a = audioRef.current;
-
-    // 3 chế độ repeat theo yêu cầu:
     if (repeat === "oneLoop") {
-      // Lặp vô hạn 1 bài
-      if (a) {
-        a.currentTime = 0;
-        a.play();
-      }
+      a.currentTime = 0;
+      a.play().catch(() => {});
       return;
     }
-
     if (repeat === "oneOnce") {
       if (repeatOnceRef.current === 0) {
-        // Lặp lại đúng 1 lần
         repeatOnceRef.current = 1;
-        if (a) {
-          a.currentTime = 0;
-          a.play();
-        }
+        a.currentTime = 0;
+        a.play().catch(() => {});
         return;
       }
-      // Đã lặp 1 lần rồi -> tiếp tục sang bài kế
-      // (không ảnh hưởng tới shuffle: nếu bật shuffle, chọn ngẫu nhiên)
     }
-
-    // "list" hoặc đã qua lặp 1 lần:
     if (!queue.length) {
       setPlaying(false);
       return;
     }
-
     if (shuffle) {
-      // Nếu bật shuffle trong "list": chọn bài ngẫu nhiên mới
       setIdx((i) => {
         if (queue.length === 1) {
           setPlaying(false);
@@ -147,16 +150,14 @@ export default function Player() {
       setPlaying(true);
       return;
     }
-
-    // tuần tự tới hết danh sách: dừng ở cuối
     setIdx((i) => {
       const last = queue.length - 1;
       if (i < last) {
         setPlaying(true);
         return i + 1;
       }
-      setPlaying(false); // dừng tại bài cuối
-      return i; // giữ index
+      setPlaying(false);
+      return i;
     });
   };
 
@@ -205,10 +206,9 @@ export default function Player() {
           step="1"
           value={progress}
           onChange={(e) => {
-            if (audioRef.current) {
-              audioRef.current.currentTime = Number(e.target.value);
-              setProgress(Number(e.target.value));
-            }
+            const val = Number(e.target.value);
+            if (audioRef.current) audioRef.current.currentTime = val;
+            setProgress(val);
           }}
           style={{ width: "100%" }}
         />
@@ -217,7 +217,27 @@ export default function Player() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      {/* nút điều khiển */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {/* Âm lượng */}
+        <button onClick={() => setMuted((m) => !m)} title="Mute">
+          {muted || vol === 0 ? "🔇" : vol < 0.5 ? "🔉" : "🔊"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={muted ? 0 : vol}
+          onChange={(e) => {
+            setMuted(false);
+            setVol(Number(e.target.value));
+          }}
+          style={{ width: 100 }}
+          title="Volume"
+        />
+
+        {/* Phát / điều hướng */}
         <button onClick={() => setShuffle((s) => !s)} title="Shuffle">
           {shuffle ? "🔀 On" : "🔀 Off"}
         </button>
@@ -231,12 +251,11 @@ export default function Player() {
           ⏭
         </button>
         <button
-          onClick={() => {
-            // Chu kỳ: list -> oneOnce -> oneLoop -> list
+          onClick={() =>
             setRepeat((r) =>
               r === "list" ? "oneOnce" : r === "oneOnce" ? "oneLoop" : "list"
-            );
-          }}
+            )
+          }
           title="Repeat mode"
         >
           {repeat === "list"
@@ -251,7 +270,7 @@ export default function Player() {
         ref={audioRef}
         src={current.audioUrl}
         onTimeUpdate={onTimeUpdate}
-        onLoadedMetadata={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
         onEnded={onEnded}
       />
     </div>

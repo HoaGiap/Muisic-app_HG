@@ -4,51 +4,42 @@ import SongItem from "../components/SongItem.jsx";
 
 export default function Search() {
   const [q, setQ] = useState("");
-  const [data, setData] = useState({ items: [], total: 0, page: 1 });
-  const [loading, setLoading] = useState(false);
+  const [songs, setSongs] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [busy, setBusy] = useState(false);
 
+  const fetchPage = async (keyword, p) => {
+    setBusy(true);
+    try {
+      const r = await api.get("/songs", {
+        params: { q: keyword, page: p, limit: 12 },
+      });
+      setSongs(p === 1 ? r.data.items : (prev) => [...prev, ...r.data.items]);
+      setHasMore(r.data.items.length > 0);
+      setPage(p);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // debounce tìm kiếm
   useEffect(() => {
-    let ignore = false;
-
     const t = setTimeout(() => {
-      setLoading(true);
-
-      api
-        .get("/songs", {
-          params: {
-            q: q.trim(), // để rỗng cũng OK => backend có thể trả tất cả
-            page: 1,
-            limit: 48,
-          },
-        })
-        .then((r) => {
-          if (ignore) return;
-          // chấp nhận cả mảng cũ lẫn object mới
-          const d = Array.isArray(r.data)
-            ? { items: r.data, total: r.data.length, page: 1 }
-            : r.data || { items: [], total: 0, page: 1 };
-          setData(d);
-        })
-        .catch((err) => {
-          if (ignore) return;
-          console.error(err);
-          setData({ items: [], total: 0, page: 1 });
-        })
-        .finally(() => {
-          if (!ignore) setLoading(false);
-        });
-    }, 300); // debounce 300ms
-
-    return () => {
-      ignore = true;
-      clearTimeout(t);
-    };
+      if (!q) {
+        setSongs([]);
+        setHasMore(false);
+        setPage(1);
+      } else {
+        fetchPage(q, 1);
+      }
+    }, 300);
+    return () => clearTimeout(t);
   }, [q]);
 
   return (
     <div>
       <h2>Tìm kiếm</h2>
-
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -56,10 +47,7 @@ export default function Search() {
         style={{ padding: 8, width: "100%", maxWidth: 420, marginBottom: 12 }}
       />
 
-      {loading && <p>Đang tìm…</p>}
-      {!loading && q && data.items.length === 0 && (
-        <p>Không tìm thấy kết quả.</p>
-      )}
+      {q && songs.length === 0 && !busy && <p>Không tìm thấy kết quả.</p>}
 
       <div
         style={{
@@ -68,10 +56,21 @@ export default function Search() {
           gap: 12,
         }}
       >
-        {data.items.map((s, i) => (
-          <SongItem key={s._id || s.id} song={s} list={data.items} index={i} />
+        {songs.map((s, i) => (
+          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
         ))}
       </div>
+
+      {q && (
+        <div style={{ marginTop: 16 }}>
+          <button
+            disabled={!hasMore || busy}
+            onClick={() => fetchPage(q, page + 1)}
+          >
+            {busy ? "Đang tải..." : hasMore ? "Tải thêm" : "Hết dữ liệu"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

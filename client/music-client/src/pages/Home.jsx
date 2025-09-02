@@ -1,45 +1,49 @@
-// src/pages/Home.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-  gap: 12,
-};
-
 export default function Home() {
-  const [data, setData] = useState({ items: [], total: 0, page: 1 });
-  const [loading, setLoading] = useState(true);
+  const [songs, setSongs] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const load = async (p = 1) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.get("/songs", { params: { page: p, limit: 12 } });
+      setSongs(p === 1 ? r.data.items : (prev) => [...prev, ...r.data.items]);
+      setHasMore(r.data.items.length > 0);
+      setPage(p);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
-    api
-      .get("/songs", { params: { page: 1, limit: 24 } })
-      .then((r) => {
-        // chấp nhận cả mảng cũ lẫn object mới
-        const d = Array.isArray(r.data)
-          ? { items: r.data, total: r.data.length, page: 1 }
-          : r.data || { items: [], total: 0, page: 1 };
-        setData(d);
-      })
-      .catch((e) => {
-        console.error(e);
-        setData({ items: [], total: 0, page: 1 });
-      })
-      .finally(() => setLoading(false));
+    load(1);
   }, []);
-
-  if (loading) return <p>Đang tải…</p>;
 
   return (
     <div>
       <h2>Danh sách bài hát</h2>
-      {data.items.length === 0 && <p>(Chưa có bài — hãy upload!)</p>}
-      <div style={grid}>
-        {data.items.map((s, i) => (
-          <SongItem key={s._id || s.id} song={s} list={data.items} index={i} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
+          gap: 12,
+        }}
+      >
+        {songs.map((s, i) => (
+          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
         ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <button disabled={!hasMore || busy} onClick={() => load(page + 1)}>
+          {busy ? "Đang tải..." : hasMore ? "Tải thêm" : "Hết dữ liệu"}
+        </button>
       </div>
     </div>
   );

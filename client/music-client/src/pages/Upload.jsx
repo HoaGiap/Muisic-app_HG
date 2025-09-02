@@ -1,14 +1,10 @@
-// src/pages/Upload.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { auth } from "../auth/firebase";
 
 export default function Upload() {
   const [user, setUser] = useState(null);
-  useEffect(() => {
-    const unsub = auth?.onAuthStateChanged(setUser);
-    return () => unsub && unsub();
-  }, []);
+  useEffect(() => auth?.onAuthStateChanged(setUser), []);
 
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -16,6 +12,9 @@ export default function Upload() {
   const [coverFile, setCoverFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const [progAudio, setProgAudio] = useState(0);
+  const [progCover, setProgCover] = useState(0);
 
   if (!user) {
     return (
@@ -26,13 +25,26 @@ export default function Upload() {
     );
   }
 
-  // Upload 1 file lên Cloudinary (tăng timeout 120s)
-  const doUpload = async (file) => {
+  const validate = () => {
+    if (!title.trim() || !artist.trim() || !audioFile)
+      return "Thiếu tiêu đề / ca sĩ / file audio.";
+    if (!audioFile.type.startsWith("audio/")) return "File audio không hợp lệ.";
+    if (audioFile.size > 20 * 1024 * 1024) return "Audio quá lớn (>20MB).";
+    if (coverFile) {
+      if (!coverFile.type.startsWith("image/")) return "Ảnh bìa không hợp lệ.";
+      if (coverFile.size > 5 * 1024 * 1024) return "Ảnh bìa quá lớn (>5MB).";
+    }
+    return "";
+  };
+
+  const doUpload = async (file, setProg) => {
     const form = new FormData();
     form.append("file", file);
     const { data } = await api.post("/upload?folder=music-app", form, {
       headers: { "Content-Type": "multipart/form-data" },
-      timeout: 120_000, // 120s để tránh timeout do Render ngủ + file lớn
+      onUploadProgress: (e) => {
+        if (e.total) setProg(Math.round((e.loaded * 100) / e.total));
+      },
     });
     return data; // { url, public_id, duration? }
   };
@@ -40,45 +52,61 @@ export default function Upload() {
   const submit = async (e) => {
     e.preventDefault();
     setMsg("");
-    if (!title || !artist || !audioFile) {
-      setMsg("Thiếu tiêu đề / ca sĩ / file audio");
+    const err = validate();
+    if (err) {
+      setMsg("❌ " + err);
       return;
     }
 
     try {
       setBusy(true);
+      setProgAudio(0);
+      setProgCover(0);
 
-      // Đánh thức backend Render trước (nếu đang ngủ)
-      await api.get("/songs", { timeout: 15_000 }).catch(() => {});
+      const audio = await doUpload(audioFile, setProgAudio);
+      const cover = coverFile
+        ? await doUpload(coverFile, setProgCover)
+        : { url: "", public_id: "" };
 
-      // Upload audio (+ ảnh bìa nếu có)
-      const audio = await doUpload(audioFile);
-      const cover = coverFile ? await doUpload(coverFile) : { url: "" };
-
-      // Tạo bản ghi bài hát
-      const body = {
-        title,
-        artist,
+      await api.post("/songs", {
+        title: title.trim(),
+        artist: artist.trim(),
         duration: audio.duration ? Math.round(audio.duration) : null,
         audioUrl: audio.url,
+        audioPublicId: audio.public_id,
         coverUrl: cover.url || null,
-      };
-      await api.post("/songs", body);
+        coverPublicId: cover.public_id || null,
+      });
 
       setMsg("✅ Tạo bài hát thành công!");
       setTitle("");
       setArtist("");
       setAudioFile(null);
       setCoverFile(null);
+      setProgAudio(0);
+      setProgCover(0);
       (document.getElementById("audio-input") || {}).value = "";
       (document.getElementById("cover-input") || {}).value = "";
     } catch (err) {
-      console.error("Upload error detail:", err.toJSON ? err.toJSON() : err);
+      console.error(err);
       setMsg("❌ Lỗi: " + (err.response?.data?.error || err.message));
     } finally {
       setBusy(false);
     }
   };
+
+  const Bar = ({ v }) => (
+    <div
+      style={{
+        background: "#eee",
+        borderRadius: 6,
+        height: 8,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ width: `${v}%`, height: "100%", background: "#0d6efd" }} />
+    </div>
+  );
 
   return (
     <div>
@@ -104,7 +132,7 @@ export default function Upload() {
           />
         </label>
         <label>
-          Audio (mp3/…) *
+          Audio (mp3/… ≤ 20MB) *
           <input
             id="audio-input"
             type="file"
@@ -113,8 +141,14 @@ export default function Upload() {
             required
           />
         </label>
+        {busy && progAudio > 0 && (
+          <div>
+            <small>Audio: {progAudio}%</small>
+            <Bar v={progAudio} />
+          </div>
+        )}
         <label>
-          Ảnh bìa (tuỳ chọn)
+          Ảnh bìa (≤ 5MB)
           <input
             id="cover-input"
             type="file"
@@ -122,6 +156,12 @@ export default function Upload() {
             onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
           />
         </label>
+        {busy && coverFile && progCover > 0 && (
+          <div>
+            <small>Ảnh bìa: {progCover}%</small>
+            <Bar v={progCover} />
+          </div>
+        )}
         <button disabled={busy}>
           {busy ? "Đang xử lý..." : "Tải lên & Tạo bài"}
         </button>
