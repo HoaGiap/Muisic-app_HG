@@ -3,7 +3,7 @@ import cloudinary from "../services/cloudinary.js";
 
 /** GET /api/songs?q=&owner=me&page=&limit= */
 export async function listSongs(req, res) {
-  const { q, owner, page = 1, limit = 50 } = req.query;
+  const { q, owner, page = 1, limit = 50, sort, order } = req.query;
 
   const filter = {};
   if (q) {
@@ -16,12 +16,16 @@ export async function listSongs(req, res) {
     filter.ownerUid = req.user.uid;
   }
 
+  // sort: 'plays' (phổ biến) hoặc mặc định theo createdAt
+  let sortObj = { createdAt: -1 };
+  if (sort === "plays") sortObj = { plays: order === "asc" ? 1 : -1 };
+
   const p = Math.max(1, parseInt(page, 10) || 1);
   const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
 
   const [items, total] = await Promise.all([
     Song.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip((p - 1) * l)
       .limit(l),
     Song.countDocuments(filter),
@@ -95,4 +99,16 @@ export async function deleteSong(req, res) {
 export async function incPlay(req, res) {
   await Song.findByIdAndUpdate(req.params.id, { $inc: { plays: 1 } });
   res.json({ ok: true });
+}
+
+export async function getSong(req, res) {
+  try {
+    const s = await Song.findById(req.params.id);
+    if (!s) return res.status(404).json({ error: "Not found" });
+    res.json(s);
+  } catch (e) {
+    if (e.name === "CastError")
+      return res.status(404).json({ error: "Not found" });
+    res.status(500).json({ error: e.message });
+  }
 }

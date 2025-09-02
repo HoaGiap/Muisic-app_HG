@@ -1,3 +1,4 @@
+// src/components/SongItem.jsx
 import { useSetAtom } from "jotai";
 import {
   currentTrackAtom,
@@ -6,6 +7,7 @@ import {
   queueIndexAtom,
 } from "./playerState";
 import { api } from "../api";
+import { Link } from "react-router-dom";
 
 // Tìm hoặc tạo playlist Favorites (server dùng uid trong token)
 async function getOrCreateFavorites() {
@@ -33,6 +35,8 @@ export default function SongItem({
   const setQueue = useSetAtom(queueAtom);
   const setQueueIndex = useSetAtom(queueIndexAtom);
 
+  const sid = song?._id ?? song?.id;
+
   const playNow = () => {
     const q = Array.isArray(list) && list.length ? list : [song];
     const i = Number.isInteger(index) ? index : 0;
@@ -45,7 +49,8 @@ export default function SongItem({
   const addToFavorites = async () => {
     try {
       const fav = await getOrCreateFavorites();
-      const songId = song?._id ?? song?.id;
+      const songId = sid;
+      if (!songId) return alert("Không tìm thấy songId hợp lệ.");
       await api.post("/playlists/add", { playlistId: fav._id, songId });
       alert("Đã thêm vào Favorites!");
     } catch (err) {
@@ -59,7 +64,7 @@ export default function SongItem({
 
   const removeFromPlaylist = async () => {
     try {
-      const songId = song?._id ?? song?.id;
+      const songId = sid;
       if (!songId || !playlistId) return;
       await api.post("/playlists/remove", { playlistId, songId });
       onChanged && onChanged();
@@ -72,9 +77,23 @@ export default function SongItem({
     }
   };
 
-  return (
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
-      {song.coverUrl && (
+  // Ảnh (nếu có id thì bọc Link; nếu không thì chỉ <img>)
+  const Cover = () =>
+    song.coverUrl ? (
+      sid ? (
+        <Link to={`/song/${sid}`} style={{ display: "block" }}>
+          <img
+            src={song.coverUrl}
+            alt={song.title}
+            style={{
+              width: "100%",
+              aspectRatio: "1/1",
+              objectFit: "cover",
+              borderRadius: 8,
+            }}
+          />
+        </Link>
+      ) : (
         <img
           src={song.coverUrl}
           alt={song.title}
@@ -85,25 +104,56 @@ export default function SongItem({
             borderRadius: 8,
           }}
         />
-      )}
-      <div style={{ marginTop: 8, fontWeight: 600 }}>{song.title}</div>
+      )
+    ) : null;
+
+  return (
+    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+      <Cover />
+
+      <div style={{ marginTop: 8, fontWeight: 600, lineHeight: 1.3 }}>
+        {sid ? (
+          <Link
+            to={`/song/${sid}`}
+            style={{ color: "inherit", textDecoration: "none" }}
+            title={song.title}
+          >
+            {song.title}
+          </Link>
+        ) : (
+          song.title
+        )}
+      </div>
+
       <div style={{ opacity: 0.7 }}>{song.artist}</div>
+
+      {/* (tuỳ chọn) hiện lượt nghe nếu có */}
+      <div style={{ fontSize: 12, opacity: 0.7 }}>
+        ▶ {Number(song.plays || 0)} lượt nghe
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <button onClick={playNow}>▶ Phát</button>
 
         {/* Xoá tại trang MyUploads */}
         {onDelete && (
-          <button onClick={() => onDelete(song._id || song.id)}>🗑️ Xoá</button>
+          <button onClick={() => onDelete(sid)} disabled={!sid}>
+            🗑️ Xoá
+          </button>
         )}
 
         {/* Xoá khỏi playlist khi đang render trong 1 playlist */}
         {!onDelete && playlistId ? (
-          <button onClick={removeFromPlaylist}>− Remove</button>
+          <button onClick={removeFromPlaylist} disabled={!sid}>
+            − Remove
+          </button>
         ) : null}
 
         {/* Thêm Favorites ở trang Home/Search */}
         {!onDelete && !playlistId && (
-          <button onClick={addToFavorites}>＋ Favorites</button>
+          <button onClick={addToFavorites} disabled={!sid}>
+            ＋ Favorites
+          </button>
         )}
       </div>
     </div>

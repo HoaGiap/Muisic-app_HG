@@ -5,12 +5,14 @@ import {
   createSong,
   deleteSong,
   incPlay,
+  getSong,
 } from "../controllers/song.controller.js";
 
 const router = Router();
 
 // Public
 router.get("/", listSongs);
+router.get("/:id", getSong);
 router.post("/:id/play", incPlay);
 
 // Require auth

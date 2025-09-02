@@ -9,12 +9,17 @@ export default function Search() {
   const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const fetchPage = async (keyword, p) => {
+  const [sort, setSort] = useState("newest");
+
+  const fetchPage = async (keyword, p, s = sort) => {
     setBusy(true);
     try {
-      const r = await api.get("/songs", {
-        params: { q: keyword, page: p, limit: 12 },
-      });
+      const params = { q: keyword, page: p, limit: 12 };
+      if (s === "popular") {
+        params.sort = "plays";
+        params.order = "desc";
+      }
+      const r = await api.get("/songs", { params });
       setSongs(p === 1 ? r.data.items : (prev) => [...prev, ...r.data.items]);
       setHasMore(r.data.items.length > 0);
       setPage(p);
@@ -23,7 +28,7 @@ export default function Search() {
     }
   };
 
-  // debounce tìm kiếm
+  // debounce
   useEffect(() => {
     const t = setTimeout(() => {
       if (!q) {
@@ -31,20 +36,28 @@ export default function Search() {
         setHasMore(false);
         setPage(1);
       } else {
-        fetchPage(q, 1);
+        fetchPage(q, 1, sort);
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, sort]);
 
   return (
     <div>
-      <h2>Tìm kiếm</h2>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <h2 style={{ margin: 0 }}>Tìm kiếm</h2>
+        <select value={sort} onChange={(e) => setSort(e.target.value)}>
+          <option value="newest">Mới nhất</option>
+          <option value="popular">Phổ biến</option>
+        </select>
+      </div>
+
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Nhập tên bài hát hoặc ca sĩ…"
-        style={{ padding: 8, width: "100%", maxWidth: 420, marginBottom: 12 }}
+        style={{ padding: 8, width: "100%", maxWidth: 420, margin: "12px 0" }}
       />
 
       {q && songs.length === 0 && !busy && <p>Không tìm thấy kết quả.</p>}

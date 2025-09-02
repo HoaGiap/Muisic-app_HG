@@ -4,6 +4,7 @@ import Search from "./pages/Search.jsx";
 import Library from "./pages/Library.jsx";
 import MyUploads from "./pages/MyUploads.jsx";
 import Player from "./components/Player.jsx";
+import SongDetail from "./pages/SongDetail.jsx";
 import { auth, login, register, logout } from "./auth/firebase";
 import { useEffect, useState } from "react";
 import Upload from "./pages/Upload.jsx";
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/library" element={<Library />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/me" element={<MyUploads />} />
+            <Route path="/song/:id" element={<SongDetail />} />
           </Routes>
         </main>
 
