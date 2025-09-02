@@ -163,7 +163,7 @@ export default function Player() {
 
   if (!current)
     return (
-      <div style={{ borderTop: "1px solid #eee", padding: 12 }}>
+      <div style={{ borderTop: "1px solid var(--border)", padding: 12 }}>
         Player sẵn sàng 🎧
       </div>
     );
@@ -171,11 +171,12 @@ export default function Player() {
   return (
     <div
       style={{
-        borderTop: "1px solid #eee",
+        borderTop: "1px solid var(--border)",
         padding: 12,
         display: "flex",
         gap: 12,
         alignItems: "center",
+        background: "var(--card)",
       }}
     >
       {current.coverUrl && (

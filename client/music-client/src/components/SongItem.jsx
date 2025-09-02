@@ -108,7 +108,7 @@ export default function SongItem({
     ) : null;
 
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+    <div className="card">
       <Cover />
 
       <div style={{ marginTop: 8, fontWeight: 600, lineHeight: 1.3 }}>

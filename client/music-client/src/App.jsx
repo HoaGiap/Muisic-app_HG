@@ -4,14 +4,30 @@ import Search from "./pages/Search.jsx";
 import Library from "./pages/Library.jsx";
 import MyUploads from "./pages/MyUploads.jsx";
 import Player from "./components/Player.jsx";
-import SongDetail from "./pages/SongDetail.jsx";
 import { auth, login, register, logout } from "./auth/firebase";
 import { useEffect, useState } from "react";
 import Upload from "./pages/Upload.jsx";
+import SongDetail from "./pages/SongDetail.jsx";
+import PlaylistDetail from "./pages/PlaylistDetail.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
   useEffect(() => auth.onAuthStateChanged(setUser), []);
+
+  // THEME
+  const prefersDark =
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  const [theme, setTheme] = useState(
+    localStorage.getItem("theme") || (prefersDark ? "dark" : "light")
+  );
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const doAuth = async () => {
     if (user) {
@@ -44,7 +60,6 @@ export default function App() {
         <header
           style={{
             padding: 12,
-            borderBottom: "1px solid #eee",
             display: "flex",
             gap: 12,
             alignItems: "center",
@@ -62,6 +77,13 @@ export default function App() {
           <button onClick={doAuth}>
             {user ? "Logout" : "Login / Register"}
           </button>
+
+          {/* Toggle theme */}
+          <button
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+          >
+            {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
+          </button>
         </header>
 
         <main style={{ padding: 16 }}>
@@ -72,6 +94,7 @@ export default function App() {
             <Route path="/upload" element={<Upload />} />
             <Route path="/me" element={<MyUploads />} />
             <Route path="/song/:id" element={<SongDetail />} />
+            <Route path="/playlist/:id" element={<PlaylistDetail />} />
           </Routes>
         </main>
 
