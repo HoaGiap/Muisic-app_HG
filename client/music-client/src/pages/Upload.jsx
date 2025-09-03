@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { auth } from "../auth/firebase";
 
@@ -13,8 +13,11 @@ export default function Upload() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const [progAudio, setProgAudio] = useState(0);
-  const [progCover, setProgCover] = useState(0);
+  // tiến độ & huỷ
+  const [pAudio, setPAudio] = useState(0);
+  const [pCover, setPCover] = useState(0);
+  const abortAudio = useRef(null);
+  const abortCover = useRef(null);
 
   if (!user) {
     return (
@@ -25,95 +28,96 @@ export default function Upload() {
     );
   }
 
-  const validate = () => {
-    if (!title.trim() || !artist.trim() || !audioFile)
-      return "Thiếu tiêu đề / ca sĩ / file audio.";
-    if (!audioFile.type.startsWith("audio/")) return "File audio không hợp lệ.";
-    if (audioFile.size > 20 * 1024 * 1024) return "Audio quá lớn (>20MB).";
-    if (coverFile) {
-      if (!coverFile.type.startsWith("image/")) return "Ảnh bìa không hợp lệ.";
-      if (coverFile.size > 5 * 1024 * 1024) return "Ảnh bìa quá lớn (>5MB).";
-    }
-    return "";
-  };
-
-  const doUpload = async (file, setProg) => {
+  const doUpload = async (file, setProgress, abortRef) => {
     const form = new FormData();
     form.append("file", file);
+
+    // Kiểm tra nhẹ client-side
+    if (file.size > 50 * 1024 * 1024) throw new Error("File quá 50MB.");
+    if (
+      file.type.startsWith("audio/") === false &&
+      file.type.startsWith("image/") === false
+    ) {
+      throw new Error("Định dạng không hỗ trợ.");
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const { data } = await api.post("/upload?folder=music-app", form, {
       headers: { "Content-Type": "multipart/form-data" },
+      signal: controller.signal,
       onUploadProgress: (e) => {
-        if (e.total) setProg(Math.round((e.loaded * 100) / e.total));
+        if (!e.total) return;
+        const percent = Math.round((e.loaded * 100) / e.total);
+        setProgress(percent);
       },
     });
+
+    abortRef.current = null;
+    setProgress(100);
     return data; // { url, public_id, duration? }
+  };
+
+  const cancelAll = () => {
+    abortAudio.current?.abort();
+    abortCover.current?.abort();
   };
 
   const submit = async (e) => {
     e.preventDefault();
     setMsg("");
-    const err = validate();
-    if (err) {
-      setMsg("❌ " + err);
+    setPAudio(0);
+    setPCover(0);
+
+    if (!title || !artist || !audioFile) {
+      setMsg("Thiếu tiêu đề / ca sĩ / file audio");
       return;
     }
 
     try {
       setBusy(true);
-      setProgAudio(0);
-      setProgCover(0);
-
-      const audio = await doUpload(audioFile, setProgAudio);
+      const audio = await doUpload(audioFile, setPAudio, abortAudio);
       const cover = coverFile
-        ? await doUpload(coverFile, setProgCover)
-        : { url: "", public_id: "" };
+        ? await doUpload(coverFile, setPCover, abortCover)
+        : { url: "" };
 
-      await api.post("/songs", {
-        title: title.trim(),
-        artist: artist.trim(),
+      const body = {
+        title,
+        artist,
         duration: audio.duration ? Math.round(audio.duration) : null,
         audioUrl: audio.url,
-        audioPublicId: audio.public_id,
         coverUrl: cover.url || null,
-        coverPublicId: cover.public_id || null,
-      });
+      };
+      await api.post("/songs", body);
 
       setMsg("✅ Tạo bài hát thành công!");
       setTitle("");
       setArtist("");
       setAudioFile(null);
       setCoverFile(null);
-      setProgAudio(0);
-      setProgCover(0);
+      setPAudio(0);
+      setPCover(0);
       (document.getElementById("audio-input") || {}).value = "";
       (document.getElementById("cover-input") || {}).value = "";
     } catch (err) {
-      console.error(err);
-      setMsg("❌ Lỗi: " + (err.response?.data?.error || err.message));
+      if (err.name === "CanceledError" || err.name === "AbortError") {
+        setMsg("⏹ Đã huỷ upload.");
+      } else {
+        console.error(err);
+        setMsg("❌ Lỗi: " + (err.response?.data?.error || err.message));
+      }
     } finally {
       setBusy(false);
     }
   };
-
-  const Bar = ({ v }) => (
-    <div
-      style={{
-        background: "#eee",
-        borderRadius: 6,
-        height: 8,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ width: `${v}%`, height: "100%", background: "#0d6efd" }} />
-    </div>
-  );
 
   return (
     <div>
       <h2>Upload bài hát</h2>
       <form
         onSubmit={submit}
-        style={{ display: "grid", gap: 12, maxWidth: 480 }}
+        style={{ display: "grid", gap: 12, maxWidth: 520 }}
       >
         <label>
           Tiêu đề
@@ -132,7 +136,7 @@ export default function Upload() {
           />
         </label>
         <label>
-          Audio (mp3/… ≤ 20MB) *
+          Audio (mp3/…) *
           <input
             id="audio-input"
             type="file"
@@ -141,14 +145,12 @@ export default function Upload() {
             required
           />
         </label>
-        {busy && progAudio > 0 && (
-          <div>
-            <small>Audio: {progAudio}%</small>
-            <Bar v={progAudio} />
-          </div>
+        {audioFile && (
+          <progress max="100" value={pAudio} style={{ width: "100%" }} />
         )}
+
         <label>
-          Ảnh bìa (≤ 5MB)
+          Ảnh bìa (tuỳ chọn)
           <input
             id="cover-input"
             type="file"
@@ -156,15 +158,18 @@ export default function Upload() {
             onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
           />
         </label>
-        {busy && coverFile && progCover > 0 && (
-          <div>
-            <small>Ảnh bìa: {progCover}%</small>
-            <Bar v={progCover} />
-          </div>
+        {coverFile && (
+          <progress max="100" value={pCover} style={{ width: "100%" }} />
         )}
-        <button disabled={busy}>
-          {busy ? "Đang xử lý..." : "Tải lên & Tạo bài"}
-        </button>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button disabled={busy}>
+            {busy ? "Đang xử lý..." : "Tải lên & Tạo bài"}
+          </button>
+          <button type="button" onClick={cancelAll} disabled={!busy}>
+            Huỷ upload
+          </button>
+        </div>
       </form>
       {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
     </div>

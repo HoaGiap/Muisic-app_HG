@@ -1,3 +1,4 @@
+// src/pages/Search.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
@@ -5,62 +6,41 @@ import SongItem from "../components/SongItem.jsx";
 export default function Search() {
   const [q, setQ] = useState("");
   const [songs, setSongs] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [sort, setSort] = useState("newest");
-
-  const fetchPage = async (keyword, p, s = sort) => {
-    setBusy(true);
-    try {
-      const params = { q: keyword, page: p, limit: 12 };
-      if (s === "popular") {
-        params.sort = "plays";
-        params.order = "desc";
-      }
-      const r = await api.get("/songs", { params });
-      setSongs(p === 1 ? r.data.items : (prev) => [...prev, ...r.data.items]);
-      setHasMore(r.data.items.length > 0);
-      setPage(p);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // debounce
   useEffect(() => {
+    let ignore = false;
     const t = setTimeout(() => {
-      if (!q) {
-        setSongs([]);
-        setHasMore(false);
-        setPage(1);
-      } else {
-        fetchPage(q, 1, sort);
-      }
+      setLoading(true);
+      api
+        .get("/songs", { params: { q } })
+        .then((r) => {
+          if (!ignore) {
+            const data = Array.isArray(r.data) ? r.data : r.data?.items || [];
+            setSongs(data);
+          }
+        })
+        .finally(() => !ignore && setLoading(false));
     }, 300);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort]);
+
+    return () => {
+      ignore = true;
+      clearTimeout(t);
+    };
+  }, [q]);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Tìm kiếm</h2>
-        <select value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="newest">Mới nhất</option>
-          <option value="popular">Phổ biến</option>
-        </select>
-      </div>
-
+      <h2>Tìm kiếm</h2>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Nhập tên bài hát hoặc ca sĩ…"
-        style={{ padding: 8, width: "100%", maxWidth: 420, margin: "12px 0" }}
+        style={{ padding: 8, width: "100%", maxWidth: 420, marginBottom: 12 }}
       />
 
-      {q && songs.length === 0 && !busy && <p>Không tìm thấy kết quả.</p>}
+      {loading && <p>Đang tìm…</p>}
+      {!loading && q && songs.length === 0 && <p>Không tìm thấy kết quả.</p>}
 
       <div
         style={{
@@ -70,20 +50,14 @@ export default function Search() {
         }}
       >
         {songs.map((s, i) => (
-          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
+          <SongItem
+            key={s._id ?? s.id ?? s.audioUrl ?? `${s.title}-${i}`}
+            song={s}
+            list={songs}
+            index={i}
+          />
         ))}
       </div>
-
-      {q && (
-        <div style={{ marginTop: 16 }}>
-          <button
-            disabled={!hasMore || busy}
-            onClick={() => fetchPage(q, page + 1)}
-          >
-            {busy ? "Đang tải..." : hasMore ? "Tải thêm" : "Hết dữ liệu"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
