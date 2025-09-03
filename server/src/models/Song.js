@@ -4,21 +4,11 @@ const SongSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     artist: { type: String, required: true },
-    duration: Number,
-
-    // URLs phát nhạc & ảnh bìa
+    duration: { type: Number, default: null },
     audioUrl: { type: String, required: true },
-    coverUrl: String,
-
-    // Lưu public_id để xóa file trên Cloudinary khi delete
-    audioPublicId: String,
-    coverPublicId: String,
-
-    // Chủ sở hữu (uid từ token Firebase)
-    ownerUid: { type: String, index: true },
-
-    // Đếm lượt phát
-    plays: { type: Number, default: 0 },
+    coverUrl: { type: String, default: null },
+    ownerUid: { type: String, index: true }, // người upload
+    plays: { type: Number, default: 0 }, // ✅ lượt nghe
   },
   { timestamps: true }
 );

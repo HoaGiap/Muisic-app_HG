@@ -1,9 +1,15 @@
 import Song from "../models/Song.js";
-import cloudinary from "../services/cloudinary.js";
 
-/** GET /api/songs?q=&owner=me&page=&limit= */
+// ------------------- LIST -------------------
 export async function listSongs(req, res) {
-  const { q, owner, page = 1, limit = 50, sort, order } = req.query;
+  const {
+    q,
+    owner, // "me" => chỉ bài của user hiện tại (theo token)
+    page = 1,
+    limit = 50,
+    sort = "createdAt", // "createdAt" | "plays"
+    order = "desc", // "asc" | "desc"
+  } = req.query;
 
   const filter = {};
   if (q) {
@@ -12,103 +18,74 @@ export async function listSongs(req, res) {
       { artist: new RegExp(q, "i") },
     ];
   }
-  if (owner === "me" && req.user?.uid) {
+  if (owner === "me" && req.user) {
     filter.ownerUid = req.user.uid;
   }
 
-  // sort: 'plays' (phổ biến) hoặc mặc định theo createdAt
-  let sortObj = { createdAt: -1 };
-  if (sort === "plays") sortObj = { plays: order === "asc" ? 1 : -1 };
+  const sortKey = sort === "plays" ? "plays" : "createdAt";
+  const sortVal = order === "asc" ? 1 : -1;
 
-  const p = Math.max(1, parseInt(page, 10) || 1);
-  const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+  const items = await Song.find(filter)
+    .sort({ [sortKey]: sortVal })
+    .skip((+page - 1) * +limit)
+    .limit(+limit);
 
-  const [items, total] = await Promise.all([
-    Song.find(filter)
-      .sort(sortObj)
-      .skip((p - 1) * l)
-      .limit(l),
-    Song.countDocuments(filter),
-  ]);
-
-  res.json({ items, total, page: p });
+  const total = await Song.countDocuments(filter);
+  res.json({ items, total, page: +page });
 }
 
-/** POST /api/songs (yêu cầu token) */
+// ------------------- CREATE -------------------
 export async function createSong(req, res) {
-  const {
-    title,
-    artist,
-    duration,
-    audioUrl,
-    audioPublicId,
-    coverUrl,
-    coverPublicId,
-  } = req.body;
-
+  const { title, artist, duration, audioUrl, coverUrl } = req.body;
   if (!title || !artist || !audioUrl) {
     return res.status(400).json({ error: "Missing fields" });
   }
   if (!req.user?.uid) {
     return res.status(401).json({ error: "unauthorized" });
   }
-
-  const doc = await Song.create({
+  const s = await Song.create({
     title,
     artist,
-    duration: duration ? Number(duration) : null,
+    duration: duration ? +duration : null,
     audioUrl,
-    audioPublicId: audioPublicId || null,
     coverUrl: coverUrl || null,
-    coverPublicId: coverPublicId || null,
     ownerUid: req.user.uid,
   });
-
-  res.status(201).json(doc);
+  res.status(201).json(s);
 }
 
-/** DELETE /api/songs/:id (yêu cầu token + đúng chủ) */
+// ------------------- DELETE (owner only) -------------------
 export async function deleteSong(req, res) {
-  if (!req.user?.uid) return res.status(401).json({ error: "unauthorized" });
-
   const song = await Song.findById(req.params.id);
   if (!song) return res.status(404).json({ error: "Not found" });
-  if (song.ownerUid !== req.user.uid) {
+  if (!req.user || song.ownerUid !== req.user.uid) {
     return res.status(403).json({ error: "forbidden" });
   }
-
-  // dọn file Cloudinary (best-effort)
-  try {
-    if (song.audioPublicId) {
-      await cloudinary.uploader.destroy(song.audioPublicId, {
-        resource_type: "video", // mp3 xử lý dưới 'video'
-      });
-    }
-    if (song.coverPublicId) {
-      await cloudinary.uploader.destroy(song.coverPublicId); // mặc định image
-    }
-  } catch (e) {
-    console.warn("Cloudinary cleanup error:", e.message);
-  }
-
   await song.deleteOne();
   res.json({ ok: true });
 }
 
-/** POST /api/songs/:id/play (tăng lượt phát – không bắt buộc token) */
-export async function incPlay(req, res) {
-  await Song.findByIdAndUpdate(req.params.id, { $inc: { plays: 1 } });
-  res.json({ ok: true });
-}
+// ------------------- INCREMENT PLAYS -------------------
+// chống spam đơn giản bằng cooldown theo uid/ip + songId
+const playCooldown = new Map(); // key: `${uidOrIp}:${songId}` -> lastTs
+const COOLDOWN_MS = 30_000; // 30 giây trong 1 phiên gọi server
 
-export async function getSong(req, res) {
-  try {
-    const s = await Song.findById(req.params.id);
-    if (!s) return res.status(404).json({ error: "Not found" });
-    res.json(s);
-  } catch (e) {
-    if (e.name === "CastError")
-      return res.status(404).json({ error: "Not found" });
-    res.status(500).json({ error: e.message });
+export async function incPlays(req, res) {
+  const { id } = req.params;
+  const song = await Song.findById(id);
+  if (!song) return res.status(404).json({ error: "Not found" });
+
+  const key = `${req.user?.uid || req.ip}:${id}`;
+  const now = Date.now();
+  const last = playCooldown.get(key) || 0;
+  if (now - last < COOLDOWN_MS) {
+    return res.json({ ok: true, skipped: true, plays: song.plays });
   }
+
+  playCooldown.set(key, now);
+
+  song.plays = (song.plays || 0) + 1;
+  await song.save();
+
+  res.json({ ok: true, plays: song.plays });
 }

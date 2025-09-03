@@ -1,22 +1,22 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth.js";
 import {
   listSongs,
   createSong,
   deleteSong,
-  incPlay,
-  getSong,
+  incPlays,
 } from "../controllers/song.controller.js";
+import { requireAuth } from "../middlewares/auth.js";
 
 const router = Router();
 
 // Public
 router.get("/", listSongs);
-router.get("/:id", getSong);
-router.post("/:id/play", incPlay);
 
-// Require auth
+// Tạo/xoá cần token (đã có Firebase auth middleware)
 router.post("/", requireAuth, createSong);
 router.delete("/:id", requireAuth, deleteSong);
+
+// ✅ Tăng lượt nghe (public — kể cả khách cũng đếm)
+router.post("/:id/plays", incPlays);
 
 export default router;

@@ -7,9 +7,12 @@ import {
   queueIndexAtom,
   shuffleAtom,
   repeatAtom,
-  queueOpenAtom, // 👈 NEW
+  // queueOpenAtom, // nếu dùng mini-queue panel, mở comment 2 dòng có queueOpenAtom
 } from "./playerState";
 import { api } from "../api";
+
+// Lưu các bài đã tính lượt trong phiên (reload sẽ reset)
+const countedSet = new Set();
 
 export default function Player() {
   const [current, setCurrent] = useAtom(currentTrackAtom);
@@ -18,11 +21,10 @@ export default function Player() {
   const [idx, setIdx] = useAtom(queueIndexAtom);
   const [shuffle, setShuffle] = useAtom(shuffleAtom);
   const [repeat, setRepeat] = useAtom(repeatAtom);
-  const [, setQueueOpen] = useAtom(queueOpenAtom); // 👈 NEW
+  // const [, setQueueOpen] = useAtom(queueOpenAtom);
 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-
   const [vol, setVol] = useState(() => {
     const v = Number(localStorage.getItem("vol"));
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
@@ -31,15 +33,22 @@ export default function Player() {
 
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
+  const countedThisTrackRef = useRef(false);
 
+  // Khoá nhận diện bài hiện tại
+  const trackKey = current?._id ?? current?.id;
+
+  // Đổi bài -> reset progress, lặp 1 lần & cờ đếm
   useEffect(() => {
     if (queue[idx]) {
       setCurrent(queue[idx]);
       setProgress(0);
       repeatOnceRef.current = 0;
+      countedThisTrackRef.current = false;
     }
   }, [idx, queue, setCurrent]);
 
+  // Play/Pause theo state
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -47,21 +56,41 @@ export default function Player() {
     else a.pause();
   }, [playing, current]);
 
+  // Volume & mute
   useEffect(() => {
     const a = audioRef.current;
     if (a) a.volume = vol;
     localStorage.setItem("vol", String(vol));
   }, [vol]);
-
   useEffect(() => {
     const a = audioRef.current;
     if (a) a.muted = muted;
   }, [muted]);
 
-  useEffect(() => {
-    if (current?._id) api.post(`/songs/${current._id}/play`).catch(() => {});
-  }, [current?._id]);
+  // Cập nhật thời gian + đếm plays sau 5 giây
+  const onTimeUpdate = () => {
+    const a = audioRef.current;
+    if (!a) return;
 
+    const cur = a.currentTime || 0;
+    const dur = a.duration || 0;
+    setProgress(cur);
+    setDuration(dur);
+
+    // ✅ chỉ đếm khi đang phát & đã nghe >= 5s
+    if (!playing) return;
+    if (!trackKey) return;
+    if (countedThisTrackRef.current) return;
+    if (cur < 5) return;
+
+    if (!countedSet.has(trackKey)) {
+      countedThisTrackRef.current = true;
+      countedSet.add(trackKey);
+      api.post(`/songs/${trackKey}/plays`).catch(() => {});
+    }
+  };
+
+  // Phím tắt
   useEffect(() => {
     const onKey = (e) => {
       if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
@@ -77,9 +106,7 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onTimeUpdate = () => setProgress(audioRef.current?.currentTime || 0);
-  const onLoadedMetadata = () => setDuration(audioRef.current?.duration || 0);
-
+  // ---------- NEXT/PREV ----------
   const goNext = (manual = false) => {
     if (!queue.length) return;
     if (shuffle) {
@@ -98,6 +125,7 @@ export default function Player() {
       setPlaying(true);
       return;
     }
+    // onEnded xử lý tự động
   };
 
   const goPrev = () => {
@@ -106,8 +134,11 @@ export default function Player() {
     setPlaying(true);
   };
 
+  // ---------- KẾT THÚC BÀI ----------
   const onEnded = () => {
     const a = audioRef.current;
+    if (!a) return;
+
     if (repeat === "oneLoop") {
       a.currentTime = 0;
       a.play().catch(() => {});
@@ -121,10 +152,12 @@ export default function Player() {
         return;
       }
     }
+
     if (!queue.length) {
       setPlaying(false);
       return;
     }
+
     if (shuffle) {
       setIdx((i) => {
         if (queue.length === 1) {
@@ -138,13 +171,14 @@ export default function Player() {
       setPlaying(true);
       return;
     }
+
     setIdx((i) => {
       const last = queue.length - 1;
       if (i < last) {
         setPlaying(true);
         return i + 1;
       }
-      setPlaying(false);
+      setPlaying(false); // dừng ở cuối
       return i;
     });
   };
@@ -159,9 +193,9 @@ export default function Player() {
         }}
       >
         Player sẵn sàng 🎧
-        <button style={{ marginLeft: 8 }} onClick={() => setQueueOpen(true)}>
+        {/* <button style={{ marginLeft: 8 }} onClick={() => setQueueOpen(true)}>
           📃 Queue ({queue.length})
-        </button>
+        </button> */}
       </div>
     );
 
@@ -216,9 +250,9 @@ export default function Player() {
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button onClick={() => setQueueOpen(true)} title="Mở hàng đợi">
+        {/* <button onClick={() => setQueueOpen(true)} title="Mở hàng đợi">
           📃 Queue ({queue.length})
-        </button>
+        </button> */}
 
         <button onClick={() => setMuted((m) => !m)} title="Mute">
           {muted || vol === 0 ? "🔇" : vol < 0.5 ? "🔉" : "🔊"}
@@ -269,7 +303,7 @@ export default function Player() {
         ref={audioRef}
         src={current.audioUrl}
         onTimeUpdate={onTimeUpdate}
-        onLoadedMetadata={onLoadedMetadata}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={onEnded}
       />
     </div>
