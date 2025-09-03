@@ -1,11 +1,19 @@
-import { atom } from "jotai";
-export const currentTrackAtom = atom(null);
-export const playingAtom = atom(false);
+// src/components/playerState.js
+import { atomWithStorage } from "jotai/utils";
 
-export const queueAtom = atom([]); // mảng các bài hiện có trên màn
-export const queueIndexAtom = atom(0); // index đang phát trong queue
-export const shuffleAtom = atom(false); // bật/tắt shuffle
-// "list"     = phát tới hết danh sách (dừng ở bài cuối)
-// "oneOnce"  = lặp lại bài hiện tại đúng 1 lần rồi tiếp tục
-// "oneLoop"  = lặp vô hạn 1 bài
-export const repeatAtom = atom("list");
+// Bài đang phát
+export const currentTrackAtom = atomWithStorage("player.current", null);
+
+// Trạng thái phát/tạm dừng
+export const playingAtom = atomWithStorage("player.playing", false);
+
+// Hàng đợi & vị trí hiện tại trong hàng đợi
+export const queueAtom = atomWithStorage("player.queue", []);
+export const queueIndexAtom = atomWithStorage("player.index", 0);
+
+// Shuffle & Repeat mode: 'list' | 'oneOnce' | 'oneLoop'
+export const shuffleAtom = atomWithStorage("player.shuffle", false);
+export const repeatAtom = atomWithStorage("player.repeat", "list");
+
+// 👇 NEW: mở/đóng panel hàng đợi
+export const queueOpenAtom = atomWithStorage("player.queueOpen", false);

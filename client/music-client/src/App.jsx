@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Upload from "./pages/Upload.jsx";
 import SongDetail from "./pages/SongDetail.jsx";
 import PlaylistDetail from "./pages/PlaylistDetail.jsx";
+import QueuePanel from "./components/QueuePanel.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -97,7 +98,7 @@ export default function App() {
             <Route path="/playlist/:id" element={<PlaylistDetail />} />
           </Routes>
         </main>
-
+        <QueuePanel />
         <Player />
       </div>
     </BrowserRouter>

@@ -7,6 +7,7 @@ import {
   queueIndexAtom,
   shuffleAtom,
   repeatAtom,
+  queueOpenAtom, // 👈 NEW
 } from "./playerState";
 import { api } from "../api";
 
@@ -17,11 +18,11 @@ export default function Player() {
   const [idx, setIdx] = useAtom(queueIndexAtom);
   const [shuffle, setShuffle] = useAtom(shuffleAtom);
   const [repeat, setRepeat] = useAtom(repeatAtom);
+  const [, setQueueOpen] = useAtom(queueOpenAtom); // 👈 NEW
 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // 🔊 âm lượng & mute (ghi nhớ localStorage)
   const [vol, setVol] = useState(() => {
     const v = Number(localStorage.getItem("vol"));
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
@@ -29,9 +30,8 @@ export default function Player() {
   const [muted, setMuted] = useState(false);
 
   const audioRef = useRef(null);
-  const repeatOnceRef = useRef(0); // 0=chưa lặp, 1=đã lặp 1 lần
+  const repeatOnceRef = useRef(0);
 
-  // đổi bài -> reset
   useEffect(() => {
     if (queue[idx]) {
       setCurrent(queue[idx]);
@@ -40,7 +40,6 @@ export default function Player() {
     }
   }, [idx, queue, setCurrent]);
 
-  // play/pause theo state
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -48,23 +47,21 @@ export default function Player() {
     else a.pause();
   }, [playing, current]);
 
-  // set volume & muted vào element
   useEffect(() => {
     const a = audioRef.current;
     if (a) a.volume = vol;
     localStorage.setItem("vol", String(vol));
   }, [vol]);
+
   useEffect(() => {
     const a = audioRef.current;
     if (a) a.muted = muted;
   }, [muted]);
 
-  // (tuỳ chọn) tăng plays nếu bạn đã làm API này
   useEffect(() => {
     if (current?._id) api.post(`/songs/${current._id}/play`).catch(() => {});
   }, [current?._id]);
 
-  // phím tắt
   useEffect(() => {
     const onKey = (e) => {
       if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
@@ -80,16 +77,9 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onTimeUpdate = () => {
-    const a = audioRef.current;
-    setProgress(a?.currentTime || 0);
-  };
-  const onLoadedMetadata = () => {
-    const a = audioRef.current;
-    setDuration(a?.duration || 0);
-  };
+  const onTimeUpdate = () => setProgress(audioRef.current?.currentTime || 0);
+  const onLoadedMetadata = () => setDuration(audioRef.current?.duration || 0);
 
-  // -------- NEXT / PREV ----------
   const goNext = (manual = false) => {
     if (!queue.length) return;
     if (shuffle) {
@@ -108,7 +98,6 @@ export default function Player() {
       setPlaying(true);
       return;
     }
-    // onEnded xử lý tự động
   };
 
   const goPrev = () => {
@@ -117,7 +106,6 @@ export default function Player() {
     setPlaying(true);
   };
 
-  // -------- KẾT THÚC BÀI ----------
   const onEnded = () => {
     const a = audioRef.current;
     if (repeat === "oneLoop") {
@@ -163,8 +151,17 @@ export default function Player() {
 
   if (!current)
     return (
-      <div style={{ borderTop: "1px solid var(--border)", padding: 12 }}>
+      <div
+        style={{
+          borderTop: "1px solid var(--border)",
+          padding: 12,
+          background: "var(--card)",
+        }}
+      >
         Player sẵn sàng 🎧
+        <button style={{ marginLeft: 8 }} onClick={() => setQueueOpen(true)}>
+          📃 Queue ({queue.length})
+        </button>
       </div>
     );
 
@@ -218,9 +215,11 @@ export default function Player() {
         </div>
       </div>
 
-      {/* nút điều khiển */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        {/* Âm lượng */}
+        <button onClick={() => setQueueOpen(true)} title="Mở hàng đợi">
+          📃 Queue ({queue.length})
+        </button>
+
         <button onClick={() => setMuted((m) => !m)} title="Mute">
           {muted || vol === 0 ? "🔇" : vol < 0.5 ? "🔉" : "🔊"}
         </button>
@@ -238,11 +237,10 @@ export default function Player() {
           title="Volume"
         />
 
-        {/* Phát / điều hướng */}
         <button onClick={() => setShuffle((s) => !s)} title="Shuffle">
           {shuffle ? "🔀 On" : "🔀 Off"}
         </button>
-        <button onClick={() => goPrev(true)} title="Prev">
+        <button onClick={goPrev} title="Prev">
           ⏮
         </button>
         <button onClick={() => setPlaying((p) => !p)} title="Play/Pause">

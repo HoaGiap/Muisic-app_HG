@@ -8,6 +8,7 @@ import {
 } from "./playerState";
 import { api } from "../api";
 import { Link } from "react-router-dom";
+import AddToPlaylistButton from "./AddToPlaylistButton.jsx";
 
 // Tìm hoặc tạo playlist Favorites (server dùng uid trong token)
 async function getOrCreateFavorites() {
@@ -151,9 +152,12 @@ export default function SongItem({
 
         {/* Thêm Favorites ở trang Home/Search */}
         {!onDelete && !playlistId && (
-          <button onClick={addToFavorites} disabled={!sid}>
-            ＋ Favorites
-          </button>
+          <>
+            <button onClick={addToFavorites} disabled={!sid}>
+              ＋ Favorites
+            </button>
+            <AddToPlaylistButton songId={sid} />
+          </>
         )}
       </div>
     </div>
