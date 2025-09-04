@@ -1,22 +1,40 @@
-import { Router } from "express";
+import express from "express";
 import {
   listSongs,
   createSong,
   deleteSong,
   incPlays,
 } from "../controllers/song.controller.js";
-import { requireAuth } from "../middlewares/auth.js";
+import { requireAuth, requireAuthOptional } from "../middlewares/auth.js";
 
-const router = Router();
+const router = express.Router();
 
-// Public
-router.get("/", listSongs);
+// Cooldown 30s cho mỗi (user|ip|bài)
+const lastHitMap = new Map();
+function keyFor(req) {
+  const uid = req.user?.uid || "anon";
+  const ip = (
+    req.headers["x-forwarded-for"] ||
+    req.socket.remoteAddress ||
+    ""
+  ).toString();
+  return `${uid}|${ip}|${req.params.id}`;
+}
+function rateLimitPlays(req, res, next) {
+  const key = keyFor(req);
+  const now = Date.now();
+  const last = lastHitMap.get(key) || 0;
+  if (now - last < 30_000) return res.status(204).end(); // bỏ qua lặng lẽ
+  lastHitMap.set(key, now);
+  next();
+}
 
-// Tạo/xoá cần token (đã có Firebase auth middleware)
+// /api/songs
+router.get("/", requireAuthOptional, listSongs);
 router.post("/", requireAuth, createSong);
 router.delete("/:id", requireAuth, deleteSong);
 
-// ✅ Tăng lượt nghe (public — kể cả khách cũng đếm)
-router.post("/:id/plays", incPlays);
+// tăng plays (không bắt buộc phải login)
+router.post("/:id/plays", requireAuthOptional, rateLimitPlays, incPlays);
 
 export default router;

@@ -1,16 +1,8 @@
 import Song from "../models/Song.js";
 
-// ------------------- LIST -------------------
+/** GET /api/songs?q=...&owner=me&page=&limit= */
 export async function listSongs(req, res) {
-  const {
-    q,
-    owner, // "me" => chỉ bài của user hiện tại (theo token)
-    page = 1,
-    limit = 50,
-    sort = "createdAt", // "createdAt" | "plays"
-    order = "desc", // "asc" | "desc"
-  } = req.query;
-
+  const { q, owner, page = 1, limit = 50 } = req.query;
   const filter = {};
   if (q) {
     filter.$or = [
@@ -21,28 +13,22 @@ export async function listSongs(req, res) {
   if (owner === "me" && req.user) {
     filter.ownerUid = req.user.uid;
   }
-
-  const sortKey = sort === "plays" ? "plays" : "createdAt";
-  const sortVal = order === "asc" ? 1 : -1;
-
   const items = await Song.find(filter)
-    .sort({ [sortKey]: sortVal })
+    .sort({ createdAt: -1 })
     .skip((+page - 1) * +limit)
     .limit(+limit);
-
   const total = await Song.countDocuments(filter);
   res.json({ items, total, page: +page });
 }
 
-// ------------------- CREATE -------------------
+/** POST /api/songs */
 export async function createSong(req, res) {
   const { title, artist, duration, audioUrl, coverUrl } = req.body;
   if (!title || !artist || !audioUrl) {
     return res.status(400).json({ error: "Missing fields" });
   }
-  if (!req.user?.uid) {
-    return res.status(401).json({ error: "unauthorized" });
-  }
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
   const s = await Song.create({
     title,
     artist,
@@ -54,7 +40,7 @@ export async function createSong(req, res) {
   res.status(201).json(s);
 }
 
-// ------------------- DELETE (owner only) -------------------
+/** DELETE /api/songs/:id */
 export async function deleteSong(req, res) {
   const song = await Song.findById(req.params.id);
   if (!song) return res.status(404).json({ error: "Not found" });
@@ -65,27 +51,14 @@ export async function deleteSong(req, res) {
   res.json({ ok: true });
 }
 
-// ------------------- INCREMENT PLAYS -------------------
-// chống spam đơn giản bằng cooldown theo uid/ip + songId
-const playCooldown = new Map(); // key: `${uidOrIp}:${songId}` -> lastTs
-const COOLDOWN_MS = 30_000; // 30 giây trong 1 phiên gọi server
-
+/** POST /api/songs/:id/plays  -> tăng 1 lượt nghe */
 export async function incPlays(req, res) {
   const { id } = req.params;
-  const song = await Song.findById(id);
-  if (!song) return res.status(404).json({ error: "Not found" });
-
-  const key = `${req.user?.uid || req.ip}:${id}`;
-  const now = Date.now();
-  const last = playCooldown.get(key) || 0;
-  if (now - last < COOLDOWN_MS) {
-    return res.json({ ok: true, skipped: true, plays: song.plays });
-  }
-
-  playCooldown.set(key, now);
-
-  song.plays = (song.plays || 0) + 1;
-  await song.save();
-
-  res.json({ ok: true, plays: song.plays });
+  const s = await Song.findByIdAndUpdate(
+    id,
+    { $inc: { plays: 1 } },
+    { new: true }
+  );
+  if (!s) return res.status(404).json({ error: "Not found" });
+  res.json({ ok: true, plays: s.plays });
 }

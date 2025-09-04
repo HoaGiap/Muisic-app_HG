@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 
-const SongSchema = new mongoose.Schema(
+const songSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    artist: { type: String, required: true },
-    duration: { type: Number, default: null },
+    title: String,
+    artist: String,
+    duration: Number,
     audioUrl: { type: String, required: true },
-    coverUrl: { type: String, default: null },
-    ownerUid: { type: String, index: true }, // người upload
-    plays: { type: Number, default: 0 }, // ✅ lượt nghe
+    coverUrl: String,
+    ownerUid: String, // người upload
+    plays: { type: Number, default: 0 }, // lượt nghe
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Song", SongSchema);
+export default mongoose.model("Song", songSchema);

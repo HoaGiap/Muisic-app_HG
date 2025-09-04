@@ -1,188 +1,190 @@
+// src/components/QueuePanel.jsx
 import { useAtom } from "jotai";
-import { useMemo } from "react";
 import {
-  currentTrackAtom,
-  playingAtom,
   queueAtom,
   queueIndexAtom,
+  playingAtom,
   queueOpenAtom,
 } from "./playerState";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-const getId = (s) => s?._id ?? s?.id ?? null;
+function reorder(list, start, end) {
+  const res = Array.from(list);
+  const [moved] = res.splice(start, 1);
+  res.splice(end, 0, moved);
+  return res;
+}
 
 export default function QueuePanel() {
-  const [open, setOpen] = useAtom(queueOpenAtom);
   const [queue, setQueue] = useAtom(queueAtom);
   const [idx, setIdx] = useAtom(queueIndexAtom);
-  const [current, setCurrent] = useAtom(currentTrackAtom);
   const [, setPlaying] = useAtom(playingAtom);
+  const [open, setOpen] = useAtom(queueOpenAtom);
 
   if (!open) return null;
 
-  const onClose = () => setOpen(false);
-
   const onDragEnd = (result) => {
     if (!result.destination) return;
-    const from = result.source.index;
-    const to = result.destination.index;
-    if (from === to) return;
+    const { source, destination } = result;
+    if (source.index === destination.index) return;
 
-    const items = [...queue];
-    const [moved] = items.splice(from, 1);
-    items.splice(to, 0, moved);
+    const newQ = reorder(queue, source.index, destination.index);
 
-    // tính index mới của bài đang phát
-    const curId = getId(current);
-    const newIndex = items.findIndex((x) => getId(x) === curId);
+    // tính lại index hiện tại sau khi reorder
+    const mapIndex = (i) => {
+      const s = source.index,
+        d = destination.index;
+      if (s === d) return i;
+      if (i === s) return d;
+      if (s < d) {
+        if (i > s && i <= d) return i - 1;
+      } else {
+        if (i >= d && i < s) return i + 1;
+      }
+      return i;
+    };
 
-    setQueue(items);
-    if (newIndex >= 0) setIdx(newIndex);
-  };
-
-  const playAt = (i) => {
-    if (!queue[i]) return;
-    setIdx(i);
-    setCurrent(queue[i]);
-    setPlaying(true);
+    setQueue(newQ);
+    setIdx((i) => mapIndex(i));
   };
 
   const removeAt = (i) => {
-    const items = queue.filter((_, k) => k !== i);
-    if (items.length === 0) {
-      setQueue([]);
-      setIdx(0);
-      setCurrent(null);
-      setPlaying(false);
-      return;
-    }
-    // điều chỉnh index khi xoá
-    if (i < idx) setIdx(idx - 1);
-    else if (i === idx) {
-      const ni = Math.min(i, items.length - 1);
-      setIdx(ni);
-      setCurrent(items[ni]);
-    }
-    setQueue(items);
+    setQueue((q) => q.filter((_, k) => k !== i));
+    setIdx((i0) => (i <= i0 ? Math.max(i0 - 1, 0) : i0));
   };
 
   const clearAll = () => {
-    if (!confirm("Xoá toàn bộ hàng đợi?")) return;
     setQueue([]);
     setIdx(0);
-    setCurrent(null);
-    setPlaying(false);
   };
 
-  const count = queue.length;
-
   return (
-    <>
-      <div className="queue-overlay" onClick={onClose} />
-      <aside className="queue-drawer">
-        <div className="queue-head">
-          <strong>Hàng đợi</strong>
-          <span className="badge">{count} bài</span>
-          <span style={{ marginLeft: "auto" }} />
-          <button onClick={clearAll} disabled={!count}>
-            Xoá hết
-          </button>
-          <button onClick={onClose}>Đóng</button>
+    <div style={styles.backdrop} onClick={() => setOpen(false)}>
+      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.header}>
+          <b>Hàng đợi</b>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={clearAll} disabled={queue.length === 0}>
+              Xoá hết
+            </button>
+            <button onClick={() => setOpen(false)}>Đóng</button>
+          </div>
         </div>
 
-        <div className="queue-body">
-          {count === 0 ? (
-            <p style={{ opacity: 0.7 }}>
-              Hàng đợi trống. Hãy bấm “▶ Phát” ở một bài bất kỳ.
-            </p>
-          ) : (
-            <DragDropContext onDragEnd={onDragEnd}>
-              <Droppable droppableId="queue" direction="vertical">
-                {(dp) => (
-                  <div
-                    ref={dp.innerRef}
-                    {...dp.droppableProps}
-                    style={{ display: "grid", gap: 8 }}
-                  >
-                    {queue.map((s, i) => {
-                      const sid = String(getId(s) ?? `idx-${i}`);
-                      const active = i === idx;
-                      return (
-                        <Draggable key={sid} draggableId={sid} index={i}>
-                          {(drag) => (
-                            <div
-                              ref={drag.innerRef}
-                              {...drag.draggableProps}
-                              className="queue-item"
+        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+          {queue.length} bài — kéo để sắp xếp, click để phát
+        </div>
+
+        <div style={{ maxHeight: 360, overflow: "auto" }}>
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="q">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                  {queue.map((s, i) => (
+                    <Draggable
+                      key={(s._id || s.id) + "_" + i}
+                      draggableId={(s._id || s.id) + "_" + i}
+                      index={i}
+                    >
+                      {(p) => (
+                        <div
+                          ref={p.innerRef}
+                          {...p.draggableProps}
+                          {...p.dragHandleProps}
+                          style={{
+                            ...styles.row,
+                            ...(i === idx ? styles.active : {}),
+                            ...p.draggableProps.style,
+                          }}
+                        >
+                          {s.coverUrl && (
+                            <img
+                              src={s.coverUrl}
+                              alt=""
                               style={{
-                                ...drag.draggableProps.style,
-                                outline: active
-                                  ? "2px solid var(--link)"
-                                  : "none",
+                                width: 40,
+                                height: 40,
+                                objectFit: "cover",
+                                borderRadius: 6,
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0, marginLeft: 8 }}>
+                            <div style={styles.title} title={s.title}>
+                              {s.title}
+                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.7 }}>
+                              {s.artist}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => {
+                                setIdx(i);
+                                setPlaying(true);
                               }}
                             >
-                              <div
-                                {...drag.dragHandleProps}
-                                className="handle"
-                                title="Kéo để sắp xếp"
-                              >
-                                ⠿
-                              </div>
-                              {s.coverUrl ? (
-                                <img
-                                  src={s.coverUrl}
-                                  alt=""
-                                  style={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 8,
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                <div
-                                  style={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 8,
-                                    background: "var(--border)",
-                                  }}
-                                />
-                              )}
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div
-                                  style={{
-                                    fontWeight: 600,
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                  }}
-                                >
-                                  {s.title}
-                                </div>
-                                <div style={{ opacity: 0.7, fontSize: 12 }}>
-                                  {s.artist || "—"}
-                                </div>
-                              </div>
-                              <button onClick={() => playAt(i)} title="Phát">
-                                ▶
-                              </button>
-                              <button onClick={() => removeAt(i)} title="Xoá">
-                                🗑
-                              </button>
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                    {dp.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-          )}
+                              Phát
+                            </button>
+                            <button onClick={() => removeAt(i)}>Xoá</button>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         </div>
-      </aside>
-    </>
+      </div>
+    </div>
   );
 }
+
+const styles = {
+  backdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,.35)",
+    display: "flex",
+    alignItems: "flex-end",
+    zIndex: 60,
+  },
+  panel: {
+    background: "var(--bg, #fff)",
+    color: "var(--fg, #111)",
+    width: "min(640px, 100%)",
+    margin: "0 auto",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 12,
+    boxShadow: "0 -8px 24px rgba(0,0,0,.25)",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  row: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: 8,
+    borderRadius: 8,
+    border: "1px solid #eee",
+    marginBottom: 8,
+    background: "var(--card, #fff)",
+  },
+  active: {
+    outline: "2px solid #4f46e5",
+  },
+  title: {
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+};
