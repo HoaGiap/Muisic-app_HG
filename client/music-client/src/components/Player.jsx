@@ -89,6 +89,9 @@ export default function Player() {
     setProgress(cur);
     setDuration(dur);
 
+    try {
+      localStorage.setItem("player_resume_at", String(cur));
+    } catch {}
     const trackId = current?._id || current?.id;
     if (trackId && !countedThisTrackRef.current && cur >= 5) {
       if (!countedSet.has(trackId)) {
@@ -97,6 +100,35 @@ export default function Player() {
         api.post(`/songs/${trackId}/plays`).catch(() => {});
       }
     }
+  };
+  const onLoadedMeta = () => {
+    // cập nhật progress/duration lần đầu
+    onTimeUpdate();
+
+    try {
+      const raw = localStorage.getItem("player_state_v1");
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const wantId = s?.currentId;
+      const resumeAt = Number(s?.resumeAt || 0);
+      const curId = current?._id || current?.id;
+      const a = audioRef.current;
+
+      // chỉ resume nếu đang đúng bài đã lưu
+      if (
+        a &&
+        curId &&
+        wantId &&
+        curId === wantId &&
+        isFinite(resumeAt) &&
+        resumeAt > 0
+      ) {
+        // tránh nhảy quá cuối bài (dễ trigger ended)
+        const safe = Math.min(resumeAt, (a.duration || resumeAt) - 3);
+        a.currentTime = safe > 0 ? safe : 0;
+        setProgress(a.currentTime);
+      }
+    } catch {}
   };
 
   const goNext = (manual = false) => {
@@ -307,9 +339,9 @@ export default function Player() {
           ref={audioRef}
           src={current.audioUrl}
           onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={onTimeUpdate}
+          onLoadedMetadata={onLoadedMeta} // ✅ dùng handler mới để resume
           onEnded={onEnded}
-          muted={muted} // ✅
+          muted={muted}
         />
       </div>
 

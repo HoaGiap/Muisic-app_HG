@@ -10,8 +10,10 @@ import Upload from "./pages/Upload.jsx";
 import SongDetail from "./pages/SongDetail.jsx";
 import PlaylistDetail from "./pages/PlaylistDetail.jsx";
 import QueuePanel from "./components/QueuePanel.jsx";
+import usePlayerPersistence from "./hooks/usePlayerPersistence.js";
 
 export default function App() {
+  usePlayerPersistence();
   const [user, setUser] = useState(null);
   useEffect(() => auth.onAuthStateChanged(setUser), []);
 
