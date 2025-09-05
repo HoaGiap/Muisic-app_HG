@@ -1,5 +1,4 @@
-// src/components/SongItem.jsx
-import { useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import {
   currentTrackAtom,
   playingAtom,
@@ -7,21 +6,9 @@ import {
   queueIndexAtom,
 } from "./playerState";
 import { api } from "../api";
-import { Link } from "react-router-dom";
-import AddToPlaylistButton from "./AddToPlaylistButton.jsx";
-
-// Tìm hoặc tạo playlist Favorites (server dùng uid trong token)
-async function getOrCreateFavorites() {
-  const { data } = await api.get("/playlists");
-  let fav = data.find(
-    (p) => (p.name || "").trim().toLowerCase() === "favorites"
-  );
-  if (!fav) {
-    const res = await api.post("/playlists", { name: "Favorites" });
-    fav = res.data;
-  }
-  return fav;
-}
+import toast from "react-hot-toast";
+import { useState } from "react";
+import PlaylistPicker from "./PlaylistPicker";
 
 export default function SongItem({
   song,
@@ -33,10 +20,10 @@ export default function SongItem({
 }) {
   const setCurrent = useSetAtom(currentTrackAtom);
   const setPlaying = useSetAtom(playingAtom);
-  const setQueue = useSetAtom(queueAtom);
+  const [queue, setQueue] = useAtom(queueAtom);
   const setQueueIndex = useSetAtom(queueIndexAtom);
 
-  const sid = song?._id ?? song?.id;
+  const [openPicker, setOpenPicker] = useState(false);
 
   const playNow = () => {
     const q = Array.isArray(list) && list.length ? list : [song];
@@ -47,54 +34,33 @@ export default function SongItem({
     setPlaying(true);
   };
 
-  const addToFavorites = async () => {
-    try {
-      const fav = await getOrCreateFavorites();
-      const songId = sid;
-      if (!songId) return alert("Không tìm thấy songId hợp lệ.");
-      await api.post("/playlists/add", { playlistId: fav._id, songId });
-      alert("Đã thêm vào Favorites!");
-    } catch (err) {
-      if (err?.response?.status === 401) alert("Bạn cần đăng nhập trước.");
-      else {
-        console.error(err);
-        alert("Thêm vào Favorites thất bại.");
-      }
-    }
+  // ➕ thêm vào queue (cuối hàng đợi)
+  const addToQueue = () => {
+    if (!song) return;
+    setQueue([...queue, song]);
+    toast.success("Đã thêm vào hàng đợi");
   };
 
+  // Remove khỏi 1 playlist (nếu đang ở trang playlist)
   const removeFromPlaylist = async () => {
     try {
-      const songId = sid;
+      const songId = song?._id ?? song?.id;
       if (!songId || !playlistId) return;
       await api.post("/playlists/remove", { playlistId, songId });
       onChanged && onChanged();
     } catch (err) {
-      if (err?.response?.status === 401) alert("Bạn cần đăng nhập trước.");
+      if (err?.response?.status === 401)
+        toast.error("Bạn cần đăng nhập trước.");
       else {
         console.error(err);
-        alert("Xoá khỏi playlist thất bại.");
+        toast.error("Xoá khỏi playlist thất bại.");
       }
     }
   };
 
-  // Ảnh (nếu có id thì bọc Link; nếu không thì chỉ <img>)
-  const Cover = () =>
-    song.coverUrl ? (
-      sid ? (
-        <Link to={`/song/${sid}`} style={{ display: "block" }}>
-          <img
-            src={song.coverUrl}
-            alt={song.title}
-            style={{
-              width: "100%",
-              aspectRatio: "1/1",
-              objectFit: "cover",
-              borderRadius: 8,
-            }}
-          />
-        </Link>
-      ) : (
+  return (
+    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+      {song.coverUrl && (
         <img
           src={song.coverUrl}
           alt={song.title}
@@ -105,61 +71,37 @@ export default function SongItem({
             borderRadius: 8,
           }}
         />
-      )
-    ) : null;
-
-  return (
-    <div className="card">
-      <Cover />
-
-      <div style={{ marginTop: 8, fontWeight: 600, lineHeight: 1.3 }}>
-        {sid ? (
-          <Link
-            to={`/song/${sid}`}
-            style={{ color: "inherit", textDecoration: "none" }}
-            title={song.title}
-          >
-            {song.title}
-          </Link>
-        ) : (
-          song.title
-        )}
-      </div>
-
+      )}
+      <div style={{ marginTop: 8, fontWeight: 600 }}>{song.title}</div>
       <div style={{ opacity: 0.7 }}>{song.artist}</div>
-
-      {/* (tuỳ chọn) hiện lượt nghe nếu có */}
-      <div style={{ fontSize: 12, opacity: 0.7 }}>
-        ▶ {Number(song.plays || 0)} lượt nghe
-      </div>
+      {/* nếu có số lượt nghe thì hiển thị */}
+      {Number.isFinite(+song.plays) && (
+        <div style={{ opacity: 0.6, fontSize: 12, marginTop: 4 }}>
+          {song.plays} lượt nghe
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <button onClick={playNow}>▶ Phát</button>
+        <button onClick={addToQueue}>＋ Queue</button>
+        <button onClick={() => setOpenPicker(true)}>＋ Playlist…</button>
 
-        {/* Xoá tại trang MyUploads */}
         {onDelete && (
-          <button onClick={() => onDelete(sid)} disabled={!sid}>
-            🗑️ Xoá
-          </button>
+          <button onClick={() => onDelete(song._id || song.id)}>🗑️ Xoá</button>
         )}
 
-        {/* Xoá khỏi playlist khi đang render trong 1 playlist */}
         {!onDelete && playlistId ? (
-          <button onClick={removeFromPlaylist} disabled={!sid}>
-            − Remove
-          </button>
+          <button onClick={removeFromPlaylist}>− Remove</button>
         ) : null}
-
-        {/* Thêm Favorites ở trang Home/Search */}
-        {!onDelete && !playlistId && (
-          <>
-            <button onClick={addToFavorites} disabled={!sid}>
-              ＋ Favorites
-            </button>
-            <AddToPlaylistButton songId={sid} />
-          </>
-        )}
       </div>
+
+      {/* Pop-up chọn playlist, cho phép tick nhiều lựa chọn */}
+      <PlaylistPicker
+        open={openPicker}
+        onClose={() => setOpenPicker(false)}
+        songId={song?._id || song?.id}
+        onDone={onChanged}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Home from "./pages/Home.jsx";
 import Search from "./pages/Search.jsx";
 import Library from "./pages/Library.jsx";
@@ -11,7 +12,7 @@ import SongDetail from "./pages/SongDetail.jsx";
 import PlaylistDetail from "./pages/PlaylistDetail.jsx";
 import QueuePanel from "./components/QueuePanel.jsx";
 import usePlayerPersistence from "./hooks/usePlayerPersistence.js";
-
+import { t } from "./ui/toast.js";
 export default function App() {
   usePlayerPersistence();
   const [user, setUser] = useState(null);
@@ -45,14 +46,20 @@ export default function App() {
       await login(email, pw).catch(async () => {
         await register(email, pw);
       });
-      alert("Đăng nhập OK");
+      t.ok("Đăng nhập OK");
     } catch (e) {
-      alert("Auth lỗi: " + e.message);
+      t.err("Auth lỗi: " + e.message);
     }
   };
 
   return (
     <BrowserRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 2500,
+        }}
+      />
       <div
         style={{
           display: "grid",

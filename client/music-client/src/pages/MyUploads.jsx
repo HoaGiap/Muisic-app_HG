@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
+import { t } from "../ui/toast";
 
 const normalize = (res) =>
   Array.isArray(res)
@@ -38,12 +39,12 @@ export default function MyUploads() {
     try {
       await api.delete(`/songs/${id}`);
       await load(page);
-      alert("Đã xoá!");
+      t.ok("Đã xoá!");
     } catch (e) {
       const s = e?.response?.status;
-      if (s === 401) alert("Bạn cần đăng nhập.");
-      else if (s === 403) alert("Bạn không phải chủ sở hữu bài hát này.");
-      else alert("Xoá thất bại.");
+      if (s === 401) t.err("Bạn cần đăng nhập.");
+      else if (s === 403) t.err("Bạn không phải chủ sở hữu bài hát này.");
+      else t.err("Xoá thất bại.");
       console.error(e);
     }
   };

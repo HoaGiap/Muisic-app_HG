@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { auth } from "../auth/firebase";
+import { t } from "../ui/toast";
 
 export default function Upload() {
   const [user, setUser] = useState(null);
@@ -91,7 +92,7 @@ export default function Upload() {
       };
       await api.post("/songs", body);
 
-      setMsg("✅ Tạo bài hát thành công!");
+      t.ok("✅ Tạo bài hát thành công!");
       setTitle("");
       setArtist("");
       setAudioFile(null);
@@ -105,7 +106,7 @@ export default function Upload() {
         setMsg("⏹ Đã huỷ upload.");
       } else {
         console.error(err);
-        setMsg("❌ Lỗi: " + (err.response?.data?.error || err.message));
+        t.err("❌ Lỗi: " + (err.response?.data?.error || err.message));
       }
     } finally {
       setBusy(false);

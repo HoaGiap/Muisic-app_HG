@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 export default function Library() {
   const [playlists, setPlaylists] = useState([]);
-  const [name, setName] = useState("Favorites");
+
   const [loading, setLoading] = useState(true);
   const [authErr, setAuthErr] = useState("");
 

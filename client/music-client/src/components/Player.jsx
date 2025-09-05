@@ -10,11 +10,13 @@ import {
   repeatAtom,
   queueOpenAtom,
   volumeAtom,
-  mutedAtom, // ✅ thêm
+  mutedAtom,
 } from "./playerState";
 import QueuePanel from "./QueuePanel";
 import { api } from "../api";
+import useMediaSession from "../hooks/useMediaSession";
 
+// Ghi nhớ các bài đã tính lượt nghe (trong phiên/tab hiện tại)
 const countedSet = new Set();
 
 export default function Player() {
@@ -26,15 +28,16 @@ export default function Player() {
   const [repeat, setRepeat] = useAtom(repeatAtom);
   const [open, setOpen] = useAtom(queueOpenAtom);
   const [volume, setVolume] = useAtom(volumeAtom);
-  const [muted, setMuted] = useAtom(mutedAtom); // ✅ thêm
+  const [muted, setMuted] = useAtom(mutedAtom);
 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+
   const audioRef = useRef(null);
-
   const repeatOnceRef = useRef(0);
-  const countedThisTrackRef = useRef(false);
+  const countedThisTrackRef = useRef(false); // chỉ post /plays 1 lần cho bài hiện tại
 
+  // Khi đổi index hoặc queue -> set current, reset cờ
   useEffect(() => {
     if (queue[idx]) {
       setCurrent(queue[idx]);
@@ -44,6 +47,7 @@ export default function Player() {
     }
   }, [idx, queue, setCurrent]);
 
+  // Play/Pause theo state
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -51,20 +55,23 @@ export default function Player() {
     else a.pause();
   }, [playing, current]);
 
-  // ✅ Volume & Mute áp vào <audio> + lưu localStorage
+  // Volume
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
-    if (typeof window !== "undefined")
+    try {
       localStorage.setItem("vol", String(volume));
+    } catch {}
   }, [volume]);
 
+  // Mute
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = muted;
-    if (typeof window !== "undefined")
+    try {
       localStorage.setItem("muted", muted ? "1" : "0");
+    } catch {}
   }, [muted]);
 
-  // phím tắt
+  // Phím tắt
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
@@ -75,13 +82,14 @@ export default function Player() {
       }
       if (e.key.toLowerCase() === "n") goNext(true);
       if (e.key.toLowerCase() === "p") goPrev(true);
-      if (e.key.toLowerCase() === "m") setMuted((m) => !m); // ✅ Mute toggle
+      if (e.key.toLowerCase() === "m") setMuted((m) => !m);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cập nhật tiến trình + lưu resume + đếm plays (>=5s)
   const onTimeUpdate = () => {
     const a = audioRef.current;
     const cur = a?.currentTime || 0;
@@ -89,10 +97,15 @@ export default function Player() {
     setProgress(cur);
     setDuration(dur);
 
-    try {
-      localStorage.setItem("player_resume_at", String(cur));
-    } catch {}
     const trackId = current?._id || current?.id;
+
+    // Nhớ vị trí cho từng bài
+    try {
+      if (trackId)
+        localStorage.setItem(`resume:${trackId}`, String(Math.floor(cur)));
+    } catch {}
+
+    // Đếm plays: chỉ sau 5s, 1 lần/phiên
     if (trackId && !countedThisTrackRef.current && cur >= 5) {
       if (!countedSet.has(trackId)) {
         countedThisTrackRef.current = true;
@@ -101,36 +114,28 @@ export default function Player() {
       }
     }
   };
-  const onLoadedMeta = () => {
-    // cập nhật progress/duration lần đầu
-    onTimeUpdate();
 
+  // Khôi phục vị trí đã nghe khi metadata sẵn sàng
+  const restoreResume = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    const trackId = current?._id || current?.id;
+    if (!trackId) return;
     try {
-      const raw = localStorage.getItem("player_state_v1");
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      const wantId = s?.currentId;
-      const resumeAt = Number(s?.resumeAt || 0);
-      const curId = current?._id || current?.id;
-      const a = audioRef.current;
-
-      // chỉ resume nếu đang đúng bài đã lưu
-      if (
-        a &&
-        curId &&
-        wantId &&
-        curId === wantId &&
-        isFinite(resumeAt) &&
-        resumeAt > 0
-      ) {
-        // tránh nhảy quá cuối bài (dễ trigger ended)
-        const safe = Math.min(resumeAt, (a.duration || resumeAt) - 3);
-        a.currentTime = safe > 0 ? safe : 0;
-        setProgress(a.currentTime);
+      const saved = Number(localStorage.getItem(`resume:${trackId}`) || 0);
+      if (saved > 0 && saved < (a.duration || 0) - 3) {
+        a.currentTime = saved;
+        setProgress(saved);
       }
     } catch {}
   };
 
+  const handleLoadedMeta = () => {
+    onTimeUpdate(); // cập nhật duration ngay
+    restoreResume(); // nhảy tới vị trí đã nghe
+  };
+
+  // Next/Prev
   const goNext = (manual = false) => {
     if (!queue.length) return;
 
@@ -144,7 +149,6 @@ export default function Player() {
       setPlaying(true);
       return;
     }
-
     const last = queue.length - 1;
     if (manual) {
       setIdx((i) => (i < last ? i + 1 : 0));
@@ -158,6 +162,7 @@ export default function Player() {
     setPlaying(true);
   };
 
+  // Kết thúc bài
   const onEnded = () => {
     const a = audioRef.current;
 
@@ -168,6 +173,7 @@ export default function Player() {
       }
       return;
     }
+
     if (repeat === "oneOnce") {
       if (repeatOnceRef.current === 0) {
         repeatOnceRef.current = 1;
@@ -177,6 +183,7 @@ export default function Player() {
         }
         return;
       }
+      // đã lặp 1 lần => tiếp tục sang bài
     }
 
     if (!queue.length) {
@@ -204,10 +211,38 @@ export default function Player() {
         setPlaying(true);
         return i + 1;
       }
-      setPlaying(false);
+      setPlaying(false); // dừng ở cuối
       return i;
     });
   };
+
+  const seekTo = (t) => {
+    const a = audioRef.current;
+    if (!a) return;
+    const d = a.duration || duration || 0;
+    const clamped = Math.min(Math.max(0, t), d > 3 ? d - 0.01 : d);
+    a.currentTime = clamped;
+    setProgress(clamped);
+  };
+  const seekBy = (delta) => {
+    const a = audioRef.current;
+    if (!a) return;
+    seekTo((a.currentTime || 0) + delta);
+  };
+
+  useMediaSession({
+    track: current,
+    playing,
+    progress,
+    duration,
+    onPlay: () => setPlaying(true),
+    onPause: () => setPlaying(false),
+    onNext: () => goNext(true),
+    onPrev: () => goPrev(true),
+    onSeekTo: (t) => seekTo(t),
+    onSeekBackward: (sec) => seekBy(-Math.abs(sec || 10)),
+    onSeekForward: (sec) => seekBy(+Math.abs(sec || 10)),
+  });
 
   if (!current) {
     return (
@@ -232,7 +267,7 @@ export default function Player() {
           alignItems: "center",
         }}
       >
-        {/* trái: thông tin + Queue */}
+        {/* Trái: thông tin + Queue */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {current.coverUrl && (
             <img
@@ -265,7 +300,7 @@ export default function Player() {
           </button>
         </div>
 
-        {/* giữa: tiến trình */}
+        {/* Giữa: tiến trình */}
         <div>
           <input
             type="range"
@@ -288,7 +323,7 @@ export default function Player() {
           </div>
         </div>
 
-        {/* phải: điều khiển + Mute + Volume */}
+        {/* Phải: điều khiển + Mute + Volume */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => setShuffle((s) => !s)} title="Shuffle">
             {shuffle ? "🔀 On" : "🔀 Off"}
@@ -317,7 +352,7 @@ export default function Player() {
               : "🔂 Lặp mãi"}
           </button>
 
-          {/* ✅ Mute + Volume */}
+          {/* Mute + Volume */}
           <button
             onClick={() => setMuted((m) => !m)}
             title={muted ? "Unmute (M)" : "Mute (M)"}
@@ -338,8 +373,9 @@ export default function Player() {
         <audio
           ref={audioRef}
           src={current.audioUrl}
+          preload="metadata"
           onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={onLoadedMeta} // ✅ dùng handler mới để resume
+          onLoadedMetadata={handleLoadedMeta}
           onEnded={onEnded}
           muted={muted}
         />

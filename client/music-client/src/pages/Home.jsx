@@ -1,116 +1,114 @@
-// src/pages/Home.jsx
-import { useCallback, useEffect, useRef, useState } from "react";
+// client/src/pages/Home.jsx
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
-import useInfiniteScroll from "../hooks/useInfiniteScroll.js";
 
-const normalize = (res) =>
-  Array.isArray(res)
-    ? { items: res, total: res.length, page: 1 }
-    : res || { items: [], total: 0, page: 1 };
+const LIMIT = 24; // số bài mỗi trang bạn muốn gọi
 
 export default function Home() {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("newest"); // newest | popular | az
   const [songs, setSongs] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // sort: 'new' | 'popular'
-  const [sort, setSort] = useState("new");
+  // Dùng seq để hủy kết quả của request cũ (tránh race)
+  const reqSeq = useRef(0);
 
-  // Chống gọi 2 lần cùng 1 trang (race / double fire)
-  const loadingPageRef = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    const seq = ++reqSeq.current; // chỉ giữ kết quả của lần gọi mới nhất
+    setLoading(true);
 
-  const load = useCallback(
-    async (p = 1, s = sort) => {
-      if (busy) return;
-      if (loadingPageRef.current === p) return;
-      loadingPageRef.current = p;
-
-      setBusy(true);
+    (async () => {
       try {
-        const params = { page: p, limit: 12 };
-        if (s === "popular") {
-          params.sort = "plays";
-          params.order = "desc";
-        }
-        const r = await api.get("/songs", { params });
-        const data = normalize(r.data);
-        const items = data.items || [];
+        let page = 1;
+        const out = [];
 
-        setSongs((prev) => (p === 1 ? items : [...prev, ...items]));
-        setHasMore(items.length > 0);
-        setPage(p);
+        while (true) {
+          const { data } = await api.get("/songs", {
+            params: { q, sort, page, limit: LIMIT },
+          });
+
+          // Nếu đã có lượt gọi mới hơn → bỏ qua kết quả này
+          if (!alive || seq !== reqSeq.current) return;
+
+          // Chuẩn hoá dữ liệu từ server
+          const items = Array.isArray(data) ? data : data.items || [];
+          const total = Array.isArray(data)
+            ? items.length
+            : Number(data.total ?? 0);
+
+          out.push(...items);
+
+          // Điều kiện dừng:
+          // - Trang hiện tại nhận ít hơn LIMIT, hoặc
+          // - Đã đủ tổng số (page * LIMIT >= total)
+          if (items.length < LIMIT || page * LIMIT >= total) break;
+
+          page += 1;
+        }
+
+        if (alive && seq === reqSeq.current) {
+          setSongs(out);
+        }
       } catch (e) {
         console.error(e);
+        if (alive && seq === reqSeq.current) setSongs([]);
       } finally {
-        loadingPageRef.current = 0;
-        setBusy(false);
+        if (alive && seq === reqSeq.current) setLoading(false);
       }
-    },
-    [busy, sort]
-  );
+    })();
 
-  // Đổi sort -> reset & load lại từ trang 1
-  useEffect(() => {
-    setSongs([]);
-    setPage(1);
-    setHasMore(true);
-    load(1, sort);
-  }, [sort]); // eslint-disable-line
-
-  // Sentinel: chỉ hoạt động khi còn trang và không bận
-  const sentinelRef = useInfiniteScroll({
-    disabled: busy || !hasMore,
-    onLoadMore: () => load(page + 1, sort),
-  });
+    return () => {
+      alive = false; // hủy effect cũ khi q/sort thay đổi hoặc unmount
+    };
+  }, [q, sort]);
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Danh sách bài hát</h2>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          style={{ marginLeft: "auto" }}
-        >
-          <option value="new">Mới nhất</option>
-          <option value="popular">Nghe nhiều</option>
-        </select>
+      <h2>Danh sách bài hát</h2>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Tìm theo tên bài / ca sĩ…"
+          style={{ flex: 1, maxWidth: 420 }}
+        />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span>Sắp xếp:</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            style={{ padding: 6 }}
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="popular">Nghe nhiều</option>
+            <option value="az">A–Z</option>
+          </select>
+        </label>
       </div>
+
+      <div style={{ marginTop: 8, opacity: 0.7 }}>{songs.length} bài</div>
+
+      {loading && <p style={{ textAlign: "center", margin: 24 }}>Đang tải…</p>}
+      {!loading && songs.length === 0 && (
+        <p style={{ textAlign: "center", margin: 24 }}>Hết DS</p>
+      )}
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
           gap: 12,
           marginTop: 12,
         }}
       >
         {songs.map((s, i) => (
-          <SongItem
-            key={s._id ?? s.id ?? s.audioUrl ?? `${s.title}-${i}`}
-            song={s}
-            list={songs}
-            index={i}
-          />
+          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
         ))}
       </div>
-
-      {/* tải trang đầu */}
-      {busy && page === 1 && (
-        <p style={{ marginTop: 12, opacity: 0.7 }}>Đang tải…</p>
-      )}
-
-      {/* Sentinel: đặt ngoài grid để tránh “ô trắng” nháy */}
-      <div ref={sentinelRef} style={{ height: 1 }} />
-
-      {/* trạng thái cuối danh sách */}
-      {!hasMore && songs.length > 0 && (
-        <p style={{ textAlign: "center", opacity: 0.6, marginTop: 12 }}>
-          Hết DS
-        </p>
-      )}
     </div>
   );
 }
