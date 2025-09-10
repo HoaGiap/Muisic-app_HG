@@ -9,6 +9,8 @@ import { api } from "../api";
 import toast from "react-hot-toast";
 import { useState } from "react";
 import PlaylistPicker from "./PlaylistPicker";
+import LyricsModal from "./LyricsModal";
+import LyricsEditor from "./LyricsEditor";
 
 export default function SongItem({
   song,
@@ -24,6 +26,8 @@ export default function SongItem({
   const setQueueIndex = useSetAtom(queueIndexAtom);
 
   const [openPicker, setOpenPicker] = useState(false);
+  const [openLyrics, setOpenLyrics] = useState(false);
+  const [openLyricsEditor, setOpenLyricsEditor] = useState(false);
 
   const playNow = () => {
     const q = Array.isArray(list) && list.length ? list : [song];
@@ -85,7 +89,8 @@ export default function SongItem({
         <button onClick={playNow}>▶ Phát</button>
         <button onClick={addToQueue}>＋ Queue</button>
         <button onClick={() => setOpenPicker(true)}>＋ Playlist…</button>
-
+        <button onClick={() => setOpenLyrics(true)}>🎼 Lyrics</button>
+        <button onClick={() => setOpenLyricsEditor(true)}>📝 Lời…</button>
         {onDelete && (
           <button onClick={() => onDelete(song._id || song.id)}>🗑️ Xoá</button>
         )}
@@ -101,6 +106,17 @@ export default function SongItem({
         onClose={() => setOpenPicker(false)}
         songId={song?._id || song?.id}
         onDone={onChanged}
+      />
+      <LyricsModal
+        open={openLyrics}
+        onClose={() => setOpenLyrics(false)}
+        song={song}
+      />
+      <LyricsEditor
+        open={openLyricsEditor}
+        onClose={() => setOpenLyricsEditor(false)}
+        songId={song?._id || song?.id}
+        onSaved={onChanged}
       />
     </div>
   );

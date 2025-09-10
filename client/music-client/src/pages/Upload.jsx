@@ -13,6 +13,7 @@ export default function Upload() {
   const [coverFile, setCoverFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [lyrics, setLyrics] = useState("");
 
   // tiến độ & huỷ
   const [pAudio, setPAudio] = useState(0);
@@ -89,12 +90,14 @@ export default function Upload() {
         duration: audio.duration ? Math.round(audio.duration) : null,
         audioUrl: audio.url,
         coverUrl: cover.url || null,
+        lyrics: lyrics || "",
       };
       await api.post("/songs", body);
 
       t.ok("✅ Tạo bài hát thành công!");
       setTitle("");
       setArtist("");
+      setLyrics("");
       setAudioFile(null);
       setCoverFile(null);
       setPAudio(0);
@@ -157,6 +160,15 @@ export default function Upload() {
             type="file"
             accept="image/*"
             onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+          />
+        </label>
+        <label>
+          Lời bài hát (tuỳ chọn)
+          <textarea
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+            rows={8}
+            placeholder="Dán lời bài hát (không bắt buộc)"
           />
         </label>
         {coverFile && (

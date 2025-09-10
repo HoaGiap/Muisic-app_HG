@@ -10,7 +10,10 @@ export const repeatAtom = atom("list"); // 'list' | 'oneOnce' | 'oneLoop'
 
 // mở/đóng panel queue mini
 export const queueOpenAtom = atom(false);
-
+//lyric lrc
+export const progressAtom = atom(0); // ⏱️ giây hiện tại
+export const durationAtom = atom(0); // ⏱️ tổng
+export const lyricsOpenAtom = atom(false);
 // âm lượng (0..1) – đọc/lưu localStorage
 const v =
   typeof window !== "undefined" ? Number(localStorage.getItem("vol")) : 1;

@@ -1,6 +1,6 @@
 // src/components/Player.jsx
 import { useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   currentTrackAtom,
   playingAtom,
@@ -11,8 +11,12 @@ import {
   queueOpenAtom,
   volumeAtom,
   mutedAtom,
+  progressAtom,
+  durationAtom,
+  lyricsOpenAtom,
 } from "./playerState";
 import QueuePanel from "./QueuePanel";
+import LyricsPanel from "./LyricsPanel";
 import { api } from "../api";
 import useMediaSession from "../hooks/useMediaSession";
 
@@ -30,8 +34,9 @@ export default function Player() {
   const [volume, setVolume] = useAtom(volumeAtom);
   const [muted, setMuted] = useAtom(mutedAtom);
 
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [progress, setProgress] = useAtom(progressAtom);
+  const [duration, setDuration] = useAtom(durationAtom);
+  const [, setLyricsOpen] = useAtom(lyricsOpenAtom); // chỉ cần setter để mở panel
 
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
@@ -45,7 +50,7 @@ export default function Player() {
       repeatOnceRef.current = 0;
       countedThisTrackRef.current = false;
     }
-  }, [idx, queue, setCurrent]);
+  }, [idx, queue, setCurrent, setProgress]);
 
   // Play/Pause theo state
   useEffect(() => {
@@ -251,6 +256,7 @@ export default function Player() {
           Player sẵn sàng 🎧
         </div>
         <QueuePanel />
+        <LyricsPanel />
       </>
     );
   }
@@ -323,7 +329,7 @@ export default function Player() {
           </div>
         </div>
 
-        {/* Phải: điều khiển + Mute + Volume */}
+        {/* Phải: điều khiển + Mute + Volume + Lyrics */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => setShuffle((s) => !s)} title="Shuffle">
             {shuffle ? "🔀 On" : "🔀 Off"}
@@ -350,6 +356,11 @@ export default function Player() {
               : repeat === "oneOnce"
               ? "🔁 Lặp 1x"
               : "🔂 Lặp mãi"}
+          </button>
+
+          {/* Lyrics panel */}
+          <button onClick={() => setLyricsOpen(true)} title="Lời bài hát">
+            🎤 Lời
           </button>
 
           {/* Mute + Volume */}
@@ -382,6 +393,7 @@ export default function Player() {
       </div>
 
       <QueuePanel />
+      <LyricsPanel />
     </>
   );
 }
