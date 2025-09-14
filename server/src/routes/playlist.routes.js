@@ -6,6 +6,7 @@ import {
   createPlaylist,
   renamePlaylist,
   deletePlaylist,
+  updatePlaylistMeta,
   addSong,
   removeSong,
   reorderSongs,
@@ -23,6 +24,7 @@ router.post("/", createPlaylist);
 router.patch("/:id", renamePlaylist);
 router.patch("/:id/reorder", reorderSongs);
 router.delete("/:id", deletePlaylist);
+router.put("/:id", requireAuth, updatePlaylistMeta);
 
 // Add/Remove songs
 router.post("/add", addSong);

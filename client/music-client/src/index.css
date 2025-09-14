@@ -5,6 +5,8 @@
   --border: #e6e6e6;
   --card: #ffffff;
   --link: #0d6efd;
+  --accent-soft: #f0f6ff; /* nền item đang chọn (light) */
+  --overlay: rgba(0, 0, 0, 0.35); /* nền mờ overlay */
 }
 
 :root[data-theme="dark"],
@@ -15,6 +17,8 @@
   --border: #2a2f3a;
   --card: #141821;
   --link: #66b2ff;
+  --accent-soft: #172036; /* nền item đang chọn (dark) */
+  --overlay: rgba(0, 0, 0, 0.55);
 }
 
 html,
@@ -68,7 +72,7 @@ button {
 .queue-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--overlay);
   z-index: 50;
 }
 
