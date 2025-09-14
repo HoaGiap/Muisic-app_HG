@@ -30,7 +30,7 @@ export default function Player() {
   const [idx, setIdx] = useAtom(queueIndexAtom);
   const [shuffle, setShuffle] = useAtom(shuffleAtom);
   const [repeat, setRepeat] = useAtom(repeatAtom);
-  const [open, setOpen] = useAtom(queueOpenAtom);
+  const [, setOpen] = useAtom(queueOpenAtom);
   const [volume, setVolume] = useAtom(volumeAtom);
   const [muted, setMuted] = useAtom(mutedAtom);
 
@@ -110,7 +110,7 @@ export default function Player() {
         localStorage.setItem(`resume:${trackId}`, String(Math.floor(cur)));
     } catch {}
 
-    // Đếm plays: chỉ sau 5s, 1 lần/phiên
+    // Đếm plays
     if (trackId && !countedThisTrackRef.current && cur >= 5) {
       if (!countedSet.has(trackId)) {
         countedThisTrackRef.current = true;
@@ -136,14 +136,13 @@ export default function Player() {
   };
 
   const handleLoadedMeta = () => {
-    onTimeUpdate(); // cập nhật duration ngay
-    restoreResume(); // nhảy tới vị trí đã nghe
+    onTimeUpdate();
+    restoreResume();
   };
 
   // Next/Prev
   const goNext = (manual = false) => {
     if (!queue.length) return;
-
     if (shuffle) {
       setIdx((i) => {
         if (queue.length === 1) return 0;
@@ -172,23 +171,18 @@ export default function Player() {
     const a = audioRef.current;
 
     if (repeat === "oneLoop") {
-      if (a) {
-        a.currentTime = 0;
-        a.play();
-      }
+      a.currentTime = 0;
+      a.play();
       return;
     }
 
     if (repeat === "oneOnce") {
       if (repeatOnceRef.current === 0) {
         repeatOnceRef.current = 1;
-        if (a) {
-          a.currentTime = 0;
-          a.play();
-        }
+        a.currentTime = 0;
+        a.play();
         return;
       }
-      // đã lặp 1 lần => tiếp tục sang bài
     }
 
     if (!queue.length) {
@@ -216,7 +210,7 @@ export default function Player() {
         setPlaying(true);
         return i + 1;
       }
-      setPlaying(false); // dừng ở cuối
+      setPlaying(false);
       return i;
     });
   };
@@ -249,11 +243,14 @@ export default function Player() {
     onSeekForward: (sec) => seekBy(+Math.abs(sec || 10)),
   });
 
+  // ===== Render =====
   if (!current) {
     return (
       <>
-        <div style={{ borderTop: "1px solid #eee", padding: 12 }}>
-          Player sẵn sàng 🎧
+        <div className="player-shell">
+          <div className="player" style={{ justifyContent: "center" }}>
+            Player sẵn sàng 🎧
+          </div>
         </div>
         <QueuePanel />
         <LyricsPanel />
@@ -263,135 +260,130 @@ export default function Player() {
 
   return (
     <>
-      <div
-        style={{
-          borderTop: "1px solid #eee",
-          padding: 12,
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
-        {/* Trái: thông tin + Queue */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {current.coverUrl && (
-            <img
-              src={current.coverUrl}
-              alt=""
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 8,
-                objectFit: "cover",
-              }}
-            />
-          )}
-          <div>
-            <div
-              style={{
-                fontWeight: 600,
-                maxWidth: 260,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {current.title}
+      {/* SHELL fixed đáy */}
+      <div className="player-shell">
+        <div className="player">
+          {/* LEFT: meta + mở Queue */}
+          <div className="meta">
+            {current.coverUrl && <img src={current.coverUrl} alt="" />}
+            <div style={{ minWidth: 0 }}>
+              <div className="t">{current.title}</div>
+              <div className="a">{current.artist}</div>
             </div>
-            <div style={{ opacity: 0.7, fontSize: 14 }}>{current.artist}</div>
+            <button className="pill" onClick={() => setOpen(true)}>
+              Queue ({queue.length})
+            </button>
           </div>
-          <button onClick={() => setOpen(true)} style={{ marginLeft: 8 }}>
-            Queue ({queue.length})
-          </button>
-        </div>
 
-        {/* Giữa: tiến trình */}
-        <div>
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step="1"
-            value={progress}
-            onChange={(e) => {
-              if (audioRef.current) {
-                const v = Number(e.target.value);
-                audioRef.current.currentTime = v;
-                setProgress(v);
-              }
-            }}
-            style={{ width: "100%" }}
-          />
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {fmt(progress)} / {fmt(duration)} &nbsp;|&nbsp; {idx + 1}/
-            {queue.length}
+          {/* CENTER: controls + progress */}
+          <div className="center">
+            <div className="buttons">
+              <button
+                className="icon"
+                title="Shuffle"
+                onClick={() => setShuffle((s) => !s)}
+              >
+                🔀
+              </button>
+              <button
+                className="icon"
+                title="Prev"
+                onClick={() => goPrev(true)}
+              >
+                ⏮
+              </button>
+              <button
+                className="icon play"
+                title="Play/Pause"
+                onClick={() => setPlaying((p) => !p)}
+              >
+                {playing ? "⏸" : "▶"}
+              </button>
+              <button
+                className="icon"
+                title="Next"
+                onClick={() => goNext(true)}
+              >
+                ⏭
+              </button>
+              <button
+                className="icon"
+                title="Repeat"
+                onClick={() =>
+                  setRepeat((r) =>
+                    r === "list"
+                      ? "oneOnce"
+                      : r === "oneOnce"
+                      ? "oneLoop"
+                      : "list"
+                  )
+                }
+              >
+                {repeat === "list" ? "🔁" : repeat === "oneOnce" ? "🔁1" : "🔂"}
+              </button>
+            </div>
+
+            <div className="progress">
+              <span>{fmt(progress)}</span>
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step="1"
+                value={progress}
+                onChange={(e) => {
+                  if (audioRef.current) {
+                    const v = Number(e.target.value);
+                    audioRef.current.currentTime = v;
+                    setProgress(v);
+                  }
+                }}
+              />
+              <span>{fmt(duration)}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Phải: điều khiển + Mute + Volume + Lyrics */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setShuffle((s) => !s)} title="Shuffle">
-            {shuffle ? "🔀 On" : "🔀 Off"}
-          </button>
-          <button onClick={() => goPrev(true)} title="Prev">
-            ⏮
-          </button>
-          <button onClick={() => setPlaying((p) => !p)} title="Play/Pause">
-            {playing ? "⏸" : "▶"}
-          </button>
-          <button onClick={() => goNext(true)} title="Next">
-            ⏭
-          </button>
-          <button
-            onClick={() =>
-              setRepeat((r) =>
-                r === "list" ? "oneOnce" : r === "oneOnce" ? "oneLoop" : "list"
-              )
-            }
-            title="Repeat mode"
-          >
-            {repeat === "list"
-              ? "🔁 Hết DS"
-              : repeat === "oneOnce"
-              ? "🔁 Lặp 1x"
-              : "🔂 Lặp mãi"}
-          </button>
+          {/* RIGHT: Lyrics + Mute + Volume */}
+          <div className="right">
+            <button
+              className="pill"
+              onClick={() => setLyricsOpen(true)}
+              title="Lời bài hát"
+            >
+              🎤 Lời
+            </button>
+            <button
+              className="icon"
+              onClick={() => setMuted((m) => !m)}
+              title={muted ? "Unmute (M)" : "Mute (M)"}
+            >
+              {muted || volume === 0 ? "🔇" : "🔊"}
+            </button>
+            <input
+              className="vol"
+              type="range"
+              min={0}
+              max={1}
+              step="0.01"
+              value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+            />
+          </div>
 
-          {/* Lyrics panel */}
-          <button onClick={() => setLyricsOpen(true)} title="Lời bài hát">
-            🎤 Lời
-          </button>
-
-          {/* Mute + Volume */}
-          <button
-            onClick={() => setMuted((m) => !m)}
-            title={muted ? "Unmute (M)" : "Mute (M)"}
-          >
-            {muted || volume === 0 ? "🔇" : "🔊"}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step="0.01"
-            value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            style={{ width: 100 }}
+          {/* audio tag */}
+          <audio
+            ref={audioRef}
+            src={current.audioUrl}
+            preload="metadata"
+            onTimeUpdate={onTimeUpdate}
+            onLoadedMetadata={handleLoadedMeta}
+            onEnded={onEnded}
+            muted={muted}
           />
         </div>
-
-        <audio
-          ref={audioRef}
-          src={current.audioUrl}
-          preload="metadata"
-          onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={handleLoadedMeta}
-          onEnded={onEnded}
-          muted={muted}
-        />
       </div>
 
+      {/* overlays */}
       <QueuePanel />
       <LyricsPanel />
     </>

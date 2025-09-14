@@ -123,3 +123,142 @@ button {
   font-size: 12px;
   opacity: 0.7;
 }
+
+/* ===== Fixed Player (Spotify-ish) ===== */
+:root {
+  --player-h: 64px;
+  --player-bg: var(--card);
+  --player-border: var(--border);
+  --player-shadow: 0 -12px 24px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  --player-bg: #0b0f14; /* đậm hơn một chút */
+  --player-border: #1f2833;
+}
+
+/* để nội dung không bị Player đè lên */
+body {
+  padding-bottom: calc(var(--player-h) + 12px);
+}
+
+.player-shell {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40; /* QueuePanel (z=50) vẫn nổi lên trên */
+  background: var(--player-bg);
+  border-top: 1px solid var(--player-border);
+  box-shadow: var(--player-shadow);
+  -webkit-backdrop-filter: saturate(120%) blur(6px);
+  backdrop-filter: saturate(120%) blur(6px);
+}
+
+/* layout 3 cột: trái (meta), giữa (controls), phải (extras) */
+.player {
+  height: var(--player-h);
+  display: grid;
+  grid-template-columns: 320px 1fr 340px;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 14px;
+}
+
+/* meta (trái) */
+.player .meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.player .meta img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.player .meta .t {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player .meta .a {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* giữa */
+.player .center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.player .buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* nút tròn */
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--player-border);
+  color: var(--text);
+  cursor: pointer;
+}
+.icon.play {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+.icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* tiến trình + thời gian hai bên */
+.player .progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  opacity: 0.9;
+}
+.player .progress input[type="range"] {
+  flex: 1;
+  height: 4px;
+}
+
+/* phải */
+.player .right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.player .right .vol {
+  width: 120px;
+}
+
+/* small pill button (Queue, Lyrics…) */
+.pill {
+  border: 1px solid var(--player-border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
