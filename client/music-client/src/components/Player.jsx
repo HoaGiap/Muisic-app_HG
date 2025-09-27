@@ -20,7 +20,19 @@ import LyricsPanel from "./LyricsPanel";
 import { api } from "../api";
 import useMediaSession from "../hooks/useMediaSession";
 
-// Ghi nhớ các bài đã tính lượt nghe (trong phiên/tab hiện tại)
+// ICONS (Font Awesome 6 via react-icons)
+import {
+  FaPlay,
+  FaPause,
+  FaBackwardStep,
+  FaForwardStep,
+  FaShuffle,
+  FaRepeat,
+  FaVolumeHigh,
+  FaVolumeXmark,
+} from "react-icons/fa6";
+
+// Ghi nhớ các bài đã tính lượt nghe trong phiên
 const countedSet = new Set();
 
 export default function Player() {
@@ -36,11 +48,11 @@ export default function Player() {
 
   const [progress, setProgress] = useAtom(progressAtom);
   const [duration, setDuration] = useAtom(durationAtom);
-  const [, setLyricsOpen] = useAtom(lyricsOpenAtom); // chỉ cần setter để mở panel
+  const [, setLyricsOpen] = useAtom(lyricsOpenAtom); // chỉ cần mở panel
 
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
-  const countedThisTrackRef = useRef(false); // chỉ post /plays 1 lần cho bài hiện tại
+  const countedThisTrackRef = useRef(false);
 
   // Khi đổi index hoặc queue -> set current, reset cờ
   useEffect(() => {
@@ -110,7 +122,7 @@ export default function Player() {
         localStorage.setItem(`resume:${trackId}`, String(Math.floor(cur)));
     } catch {}
 
-    // Đếm plays
+    // Đếm plays: chỉ sau 5s, 1 lần/phiên
     if (trackId && !countedThisTrackRef.current && cur >= 5) {
       if (!countedSet.has(trackId)) {
         countedThisTrackRef.current = true;
@@ -223,6 +235,7 @@ export default function Player() {
     a.currentTime = clamped;
     setProgress(clamped);
   };
+
   const seekBy = (delta) => {
     const a = audioRef.current;
     if (!a) return;
@@ -278,37 +291,55 @@ export default function Player() {
           {/* CENTER: controls + progress */}
           <div className="center">
             <div className="buttons">
+              {/* Shuffle */}
               <button
-                className="icon"
-                title="Shuffle"
+                className={"icon" + (shuffle ? " is-active" : "")}
+                title={shuffle ? "Shuffle: On" : "Shuffle: Off"}
+                aria-pressed={shuffle}
                 onClick={() => setShuffle((s) => !s)}
               >
-                🔀
+                <FaShuffle size={18} />
               </button>
+
+              {/* Prev */}
               <button
                 className="icon"
                 title="Prev"
                 onClick={() => goPrev(true)}
               >
-                ⏮
+                <FaBackwardStep size={18} />
               </button>
+
+              {/* Play / Pause */}
               <button
                 className="icon play"
-                title="Play/Pause"
+                title={playing ? "Pause" : "Play"}
                 onClick={() => setPlaying((p) => !p)}
+                aria-pressed={playing}
               >
-                {playing ? "⏸" : "▶"}
+                {playing ? <FaPause size={18} /> : <FaPlay size={18} />}
               </button>
+
+              {/* Next */}
               <button
                 className="icon"
                 title="Next"
                 onClick={() => goNext(true)}
               >
-                ⏭
+                <FaForwardStep size={18} />
               </button>
+
+              {/* Repeat */}
               <button
-                className="icon"
-                title="Repeat"
+                className={"icon" + (repeat !== "list" ? " is-active" : "")}
+                title={
+                  repeat === "list"
+                    ? "Repeat: Off"
+                    : repeat === "oneOnce"
+                    ? "Repeat: One (1x)"
+                    : "Repeat: One (loop)"
+                }
+                aria-pressed={repeat !== "list"}
                 onClick={() =>
                   setRepeat((r) =>
                     r === "list"
@@ -319,7 +350,10 @@ export default function Player() {
                   )
                 }
               >
-                {repeat === "list" ? "🔁" : repeat === "oneOnce" ? "🔁1" : "🔂"}
+                <FaRepeat size={18} />
+                {repeat === "oneOnce" && (
+                  <span style={{ fontSize: 10, marginLeft: 4 }}>1x</span>
+                )}
               </button>
             </div>
 
@@ -352,13 +386,20 @@ export default function Player() {
             >
               🎤 Lời
             </button>
+
             <button
-              className="icon"
+              className={"icon" + (muted || volume === 0 ? " is-active" : "")}
               onClick={() => setMuted((m) => !m)}
-              title={muted ? "Unmute (M)" : "Mute (M)"}
+              title={muted || volume === 0 ? "Unmute (M)" : "Mute (M)"}
+              aria-pressed={muted || volume === 0}
             >
-              {muted || volume === 0 ? "🔇" : "🔊"}
+              {muted || volume === 0 ? (
+                <FaVolumeXmark size={18} />
+              ) : (
+                <FaVolumeHigh size={18} />
+              )}
             </button>
+
             <input
               className="vol"
               type="range"
@@ -367,6 +408,7 @@ export default function Player() {
               step="0.01"
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
+              aria-label="Volume"
             />
           </div>
 

@@ -262,3 +262,30 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme="dark"] .icon-btn:hover,
+[data-theme="dark"] .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.icon-btn.is-active {
+  border-color: var(--link);
+  color: var(--link);
+}
