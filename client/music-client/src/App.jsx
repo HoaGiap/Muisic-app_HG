@@ -13,10 +13,21 @@ import PlaylistDetail from "./pages/PlaylistDetail.jsx";
 import QueuePanel from "./components/QueuePanel.jsx";
 import usePlayerPersistence from "./hooks/usePlayerPersistence.js";
 import { t } from "./ui/toast.js";
+import DebugAdmin from "./DebugAdmin.jsx";
+
+// ✅ mới:
+import useAuthClaims from "./auth/useAuthClaims.js";
+import AdminRoute from "./routes/AdminRoute.jsx";
+
 export default function App() {
   usePlayerPersistence();
+
+  // vẫn giữ state user để hiển thị email nhanh
   const [user, setUser] = useState(null);
   useEffect(() => auth.onAuthStateChanged(setUser), []);
+
+  // ✅ lấy claims
+  const { isAdmin } = useAuthClaims();
 
   // THEME
   const prefersDark =
@@ -54,12 +65,10 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 2500,
-        }}
-      />
+      <Toaster position="top-right" toastOptions={{ duration: 2500 }} />
+      {/* (tuỳ chọn) bật lên để xem log isAdmin ở Console */}
+      <DebugAdmin />
+
       <div
         style={{
           display: "grid",
@@ -78,12 +87,36 @@ export default function App() {
           <NavLink to="/">Home</NavLink>
           <NavLink to="/search">Search</NavLink>
           <NavLink to="/library">Library</NavLink>
-          {user && <NavLink to="/upload">Upload</NavLink>}
-          {user && <NavLink to="/me">My Uploads</NavLink>}
+
+          {/* ✅ chỉ admin mới thấy */}
+          {isAdmin && <NavLink to="/upload">Upload</NavLink>}
+          {isAdmin && <NavLink to="/me">My Uploads</NavLink>}
 
           <span style={{ marginLeft: "auto", opacity: 0.8 }}>
-            {user ? user.email : "Chưa đăng nhập"}
+            {user ? (
+              <>
+                {user.email}
+                {isAdmin && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      background: "var(--accent, #4ade80)",
+                      color: "#000",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ADMIN
+                  </span>
+                )}
+              </>
+            ) : (
+              "Chưa đăng nhập"
+            )}
           </span>
+
           <button onClick={doAuth}>
             {user ? "Logout" : "Login / Register"}
           </button>
@@ -101,12 +134,30 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/search" element={<Search />} />
             <Route path="/library" element={<Library />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/me" element={<MyUploads />} />
+
+            {/* ✅ route admin-only */}
+            <Route
+              path="/upload"
+              element={
+                <AdminRoute>
+                  <Upload />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/me"
+              element={
+                <AdminRoute>
+                  <MyUploads />
+                </AdminRoute>
+              }
+            />
+
             <Route path="/song/:id" element={<SongDetail />} />
             <Route path="/playlist/:id" element={<PlaylistDetail />} />
           </Routes>
         </main>
+
         <QueuePanel />
         <Player />
       </div>
