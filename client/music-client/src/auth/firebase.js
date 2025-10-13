@@ -6,8 +6,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  sendEmailVerification,
 } from "firebase/auth";
 
+// Cấu hình Firebase (đảm bảo các biến môi trường này có trong .env)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -18,15 +20,44 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Biến “token hiện tại” dùng cho axios interceptor
+// ======================================
+// 🔒 Giữ token hiện tại để axios có thể dùng
+// ======================================
 let _idToken = null;
 onIdTokenChanged(auth, async (user) => {
-  _idToken = user ? await user.getIdToken() : null;
+  if (user) {
+    try {
+      _idToken = await user.getIdToken();
+    } catch {
+      _idToken = null;
+    }
+  } else {
+    _idToken = null;
+  }
 });
 export const getIdToken = () => _idToken;
 
-// Helpers
-export const login = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
-export const register = (email, pw) =>
-  createUserWithEmailAndPassword(auth, email, pw);
-export const logout = () => signOut(auth);
+// ======================================
+// 🔑 Helpers
+// ======================================
+export async function register(email, password) {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+  // ✅ Tự động gửi email xác thực (không bắt buộc nhưng nên có)
+  try {
+    await sendEmailVerification(cred.user);
+  } catch (err) {
+    console.warn("Không gửi được email xác thực:", err.message);
+  }
+
+  return cred.user; // Firebase sẽ tự login sau khi tạo
+}
+
+export async function login(email, password) {
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  return cred.user;
+}
+
+export async function logout() {
+  await signOut(auth);
+}

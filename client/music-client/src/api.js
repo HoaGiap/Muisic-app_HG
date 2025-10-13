@@ -1,5 +1,5 @@
 import axios from "axios";
-import { auth } from "./auth/firebase";
+import { getAuth } from "firebase/auth";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api",
@@ -8,14 +8,13 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   try {
-    const u = auth.currentUser;
+    const u = getAuth().currentUser;
     if (u) {
-      const t = await u.getIdToken(); // hoặc getIdToken(true) nếu muốn cưỡng bức refresh
+      // ✅ ép refresh để chắc chắn có claim admin sau khi login/grant
+      const t = await u.getIdToken(true);
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${t}`;
     }
-  } catch {
-    // bỏ qua, gửi request như bình thường
-  }
+  } catch {}
   return config;
 });

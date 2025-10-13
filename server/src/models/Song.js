@@ -1,32 +1,42 @@
 import mongoose from "mongoose";
 
-// Cue cho LRC: { t: seconds, l: line }
-const CueSchema = new mongoose.Schema(
+const songSchema = new mongoose.Schema(
   {
-    t: { type: Number, required: true },
-    l: { type: String, required: true },
+    title: {
+      type: String,
+      required: [true, "Thiếu tiêu đề bài hát"],
+      trim: true,
+    },
+    artist: {
+      type: String,
+      required: [true, "Thiếu tên ca sĩ"],
+      trim: true,
+    },
+    audioUrl: {
+      type: String,
+      required: [true, "Thiếu đường dẫn file audio"],
+    },
+    coverUrl: {
+      type: String,
+      default: "",
+    },
+    lyrics: {
+      type: String,
+      default: "",
+    },
+    duration: {
+      type: Number, // tính bằng giây
+      required: [true, "Thiếu độ dài bài hát"],
+    },
+    createdBy: {
+      type: String, // lưu uid của Firebase user
+      required: true,
+      index: true,
+    },
   },
-  { _id: false }
+  {
+    timestamps: true, // tự thêm createdAt, updatedAt
+  }
 );
 
-const SongSchema = new mongoose.Schema(
-  {
-    title: String,
-    artist: String,
-    duration: Number,
-    audioUrl: String,
-    coverUrl: String,
-    ownerUid: String,
-    plays: { type: Number, default: 0 },
-
-    // Lời không timestamp (tùy chọn)
-    lyrics: { type: String, default: "" },
-
-    // LRC đã parse: mảng cue { t, l }
-    lyricsLrc: { type: [CueSchema], default: [] },
-  },
-  { timestamps: true }
-);
-
-// ✅ Export mặc định để file khác dùng: import Song from "../models/Song.js"
-export default mongoose.model("Song", SongSchema);
+export default mongoose.model("Song", songSchema);
