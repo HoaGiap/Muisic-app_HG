@@ -1,114 +1,283 @@
-// client/src/pages/Home.jsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
+import usePlayerQueue from "../hooks/usePlayerQueue";
 
-const LIMIT = 24; // số bài mỗi trang bạn muốn gọi
+/**
+ * Backend trả từ GET /home
+ * {
+ *   trending: { title, items: Song[] },
+ *   artists:  { title, items: Artist[] },
+ *   albums:   { title, items: Album[] },
+ *   radios:   { title, items: Radio[] }
+ * }
+ */
+
+const Section = ({ title, children, action }) => (
+  <section style={{ margin: "24px 0" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
+      }}
+    >
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{title}</h3>
+      {action}
+    </div>
+    {children}
+  </section>
+);
+
+const Grid = ({ children, min = 180 }) => (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))`,
+      gap: 14,
+    }}
+  >
+    {children}
+  </div>
+);
+
+// Ô vuông (Album / Radio)
+const Tile = ({ title, subtitle, image, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      borderRadius: 14,
+      padding: 12,
+      background: "var(--panel, #fff)",
+      border: "1px solid var(--border, rgba(0,0,0,.08))",
+      cursor: "pointer",
+      display: "grid",
+      gap: 10,
+      transition: "transform .12s ease",
+    }}
+    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
+    onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
+  >
+    <div
+      style={{
+        width: "100%",
+        aspectRatio: "1 / 1",
+        borderRadius: 12,
+        background: "#ddd",
+        backgroundImage: image ? `url(${image})` : "none",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    />
+    <div style={{ display: "grid", gap: 4 }}>
+      <div style={{ fontWeight: 700, lineHeight: 1.25 }}>{title}</div>
+      {subtitle ? (
+        <div style={{ opacity: 0.7, fontSize: 13, lineHeight: 1.3 }}>
+          {subtitle}
+        </div>
+      ) : null}
+    </div>
+  </div>
+);
+
+// Ô tròn (Nghệ sĩ)
+const CircleTile = ({ title, image, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      borderRadius: 14,
+      padding: 12,
+      background: "var(--panel, #fff)",
+      border: "1px solid var(--border, rgba(0,0,0,.08))",
+      cursor: "pointer",
+      display: "grid",
+      gap: 10,
+      justifyItems: "center",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        aspectRatio: "1 / 1",
+        borderRadius: "999px",
+        background: "#ddd",
+        backgroundImage: image ? `url(${image})` : "none",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    />
+    <div style={{ fontWeight: 700, textAlign: "center" }}>{title}</div>
+  </div>
+);
 
 export default function Home() {
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState("newest"); // newest | popular | az
-  const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({
+    trending: { title: "Bài hát thịnh hành", items: [] },
+    artists: { title: "Nghệ sĩ phổ biến", items: [] },
+    albums: { title: "Album & Đĩa đơn nổi tiếng", items: [] },
+    radios: { title: "Radio phổ biến", items: [] },
+  });
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  // Dùng seq để hủy kết quả của request cũ (tránh race)
-  const reqSeq = useRef(0);
+  // Hook hàng đợi
+  const { replaceQueue, playListFrom } = usePlayerQueue();
 
   useEffect(() => {
-    let alive = true;
-    const seq = ++reqSeq.current; // chỉ giữ kết quả của lần gọi mới nhất
-    setLoading(true);
-
+    let mounted = true;
     (async () => {
+      setLoading(true);
+      setErr("");
       try {
-        let page = 1;
-        const out = [];
-
-        while (true) {
-          const { data } = await api.get("/songs", {
-            params: { q, sort, page, limit: LIMIT },
-          });
-
-          // Nếu đã có lượt gọi mới hơn → bỏ qua kết quả này
-          if (!alive || seq !== reqSeq.current) return;
-
-          // Chuẩn hoá dữ liệu từ server
-          const items = Array.isArray(data) ? data : data.items || [];
-          const total = Array.isArray(data)
-            ? items.length
-            : Number(data.total ?? 0);
-
-          out.push(...items);
-
-          // Điều kiện dừng:
-          // - Trang hiện tại nhận ít hơn LIMIT, hoặc
-          // - Đã đủ tổng số (page * LIMIT >= total)
-          if (items.length < LIMIT || page * LIMIT >= total) break;
-
-          page += 1;
-        }
-
-        if (alive && seq === reqSeq.current) {
-          setSongs(out);
-        }
+        const { data: payload } = await api.get("/home");
+        const safe = payload && typeof payload === "object" ? payload : {};
+        const out = {
+          trending: safe.trending ?? { title: "Bài hát thịnh hành", items: [] },
+          artists: safe.artists ?? { title: "Nghệ sĩ phổ biến", items: [] },
+          albums: safe.albums ?? {
+            title: "Album & Đĩa đơn nổi tiếng",
+            items: [],
+          },
+          radios: safe.radios ?? { title: "Radio phổ biến", items: [] },
+        };
+        if (mounted) setData(out);
       } catch (e) {
         console.error(e);
-        if (alive && seq === reqSeq.current) setSongs([]);
+        if (mounted) {
+          setErr(e?.response?.data?.error || e.message || "Lỗi tải dữ liệu");
+          // Fallback: kéo list phổ biến nhét vào trending
+          try {
+            const { data: list } = await api.get("/songs", {
+              params: { sort: "popular", page: 1, limit: 24 },
+            });
+            const items = Array.isArray(list) ? list : list.items ?? [];
+            setData((d) => ({ ...d, trending: { ...d.trending, items } }));
+          } catch {}
+        }
       } finally {
-        if (alive && seq === reqSeq.current) setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
-
     return () => {
-      alive = false; // hủy effect cũ khi q/sort thay đổi hoặc unmount
+      mounted = false;
     };
-  }, [q, sort]);
+  }, []);
+
+  const { trending, artists, albums, radios } = data;
+
+  // ▶ Phát tất cả Trending (thay queue và play từ 0)
+  const playAllTrending = () => {
+    const list = trending.items || [];
+    if (!list.length) return;
+    replaceQueue(list, { startIndex: 0, playNow: true });
+  };
+
+  // ▶ Phát list trending từ một index (nếu bạn muốn click vào “Xem tất cả”)
+  const playTrendingFrom = (startIndex) => {
+    const list = trending.items || [];
+    if (!list.length) return;
+    playListFrom(list, startIndex);
+  };
 
   return (
-    <div>
-      <h2>Danh sách bài hát</h2>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo tên bài / ca sĩ…"
-          style={{ flex: 1, maxWidth: 420 }}
-        />
-
-        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Sắp xếp:</span>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            style={{ padding: 6 }}
-          >
-            <option value="newest">Mới nhất</option>
-            <option value="popular">Nghe nhiều</option>
-            <option value="az">A–Z</option>
-          </select>
-        </label>
-      </div>
-
-      <div style={{ marginTop: 8, opacity: 0.7 }}>{songs.length} bài</div>
-
-      {loading && <p style={{ textAlign: "center", margin: 24 }}>Đang tải…</p>}
-      {!loading && songs.length === 0 && (
-        <p style={{ textAlign: "center", margin: 24 }}>Hết DS</p>
-      )}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-          gap: 12,
-          marginTop: 12,
-        }}
+    <div style={{ display: "grid", gap: 28 }}>
+      {/* Trending songs */}
+      <Section
+        title={trending.title || "Bài hát thịnh hành"}
+        action={
+          trending.items?.length > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ opacity: 0.7, fontSize: 13 }}>
+                {trending.items.length} bài
+              </span>
+              <button
+                onClick={playAllTrending}
+                style={{
+                  height: 32,
+                  border: 0,
+                  padding: "0 12px",
+                  borderRadius: 10,
+                  fontWeight: 800,
+                  background: "var(--accent, #22c55e)",
+                  color: "#000",
+                  cursor: "pointer",
+                }}
+                title="Phát tất cả"
+              >
+                ▶ Phát tất cả
+              </button>
+            </div>
+          ) : null
+        }
       >
-        {songs.map((s, i) => (
-          <SongItem key={s._id || s.id} song={s} list={songs} index={i} />
-        ))}
-      </div>
+        {loading && <p>Đang tải…</p>}
+        {err && <p style={{ color: "crimson" }}>{err}</p>}
+        {!loading && trending.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
+
+        <Grid min={220}>
+          {(trending.items || []).map((s, i) => (
+            <SongItem
+              key={s._id || s.id || i}
+              song={s}
+              list={trending.items}
+              index={i}
+              // Nếu bạn muốn click card là phát từ bài đó:
+              onPlayListFrom={() => playTrendingFrom(i)}
+            />
+          ))}
+        </Grid>
+      </Section>
+
+      {/* Artists */}
+      <Section title={artists.title || "Nghệ sĩ phổ biến"}>
+        {loading && <p>Đang tải…</p>}
+        {!loading && artists.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
+        <Grid min={160}>
+          {(artists.items || []).map((a, i) => (
+            <CircleTile
+              key={a._id || a.id || i}
+              title={a.name || a.title || "Nghệ sĩ"}
+              image={a.image || a.coverUrl || ""}
+              onClick={() => {}}
+            />
+          ))}
+        </Grid>
+      </Section>
+
+      {/* Albums */}
+      <Section title={albums.title || "Album & Đĩa đơn nổi tiếng"}>
+        {loading && <p>Đang tải…</p>}
+        {!loading && albums.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
+        <Grid min={180}>
+          {(albums.items || []).map((al, i) => (
+            <Tile
+              key={al._id || al.id || i}
+              title={al.title || al.name || "Album"}
+              subtitle={al.artistName || al.artist || ""}
+              image={al.coverUrl || al.image || ""}
+              onClick={() => {}}
+            />
+          ))}
+        </Grid>
+      </Section>
+
+      {/* Radios */}
+      <Section title={radios.title || "Radio phổ biến"}>
+        {loading && <p>Đang tải…</p>}
+        {!loading && radios.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
+        <Grid min={180}>
+          {(radios.items || []).map((r, i) => (
+            <Tile
+              key={r._id || r.id || i}
+              title={r.title || "Radio"}
+              subtitle={r.description || ""}
+              image={r.coverUrl || r.image || ""}
+              onClick={() => {}}
+            />
+          ))}
+        </Grid>
+      </Section>
     </div>
   );
 }

@@ -20,7 +20,6 @@ import LyricsPanel from "./LyricsPanel";
 import { api } from "../api";
 import useMediaSession from "../hooks/useMediaSession";
 
-// ICONS (Font Awesome 6 via react-icons)
 import {
   FaPlay,
   FaPause,
@@ -32,14 +31,17 @@ import {
   FaVolumeXmark,
 } from "react-icons/fa6";
 
-// Ghi nhớ các bài đã tính lượt nghe trong phiên
+// ghi nhớ các bài đã tính plays trong 1 phiên
 const countedSet = new Set();
 
 export default function Player() {
   const [current, setCurrent] = useAtom(currentTrackAtom);
   const [playing, setPlaying] = useAtom(playingAtom);
+
+  // CHỈ đọc queue, không set ở Player nữa
   const [queue] = useAtom(queueAtom);
   const [idx, setIdx] = useAtom(queueIndexAtom);
+
   const [shuffle, setShuffle] = useAtom(shuffleAtom);
   const [repeat, setRepeat] = useAtom(repeatAtom);
   const [, setOpen] = useAtom(queueOpenAtom);
@@ -48,7 +50,7 @@ export default function Player() {
 
   const [progress, setProgress] = useAtom(progressAtom);
   const [duration, setDuration] = useAtom(durationAtom);
-  const [, setLyricsOpen] = useAtom(lyricsOpenAtom); // chỉ cần mở panel
+  const [, setLyricsOpen] = useAtom(lyricsOpenAtom);
 
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
@@ -106,7 +108,7 @@ export default function Player() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cập nhật tiến trình + lưu resume + đếm plays (>=5s)
+  // Cập nhật tiến trình + resume + đếm plays (>=5s)
   const onTimeUpdate = () => {
     const a = audioRef.current;
     const cur = a?.currentTime || 0;
@@ -116,13 +118,13 @@ export default function Player() {
 
     const trackId = current?._id || current?.id;
 
-    // Nhớ vị trí cho từng bài
+    // nhớ vị trí cho từng bài
     try {
       if (trackId)
         localStorage.setItem(`resume:${trackId}`, String(Math.floor(cur)));
     } catch {}
 
-    // Đếm plays: chỉ sau 5s, 1 lần/phiên
+    // đếm plays
     if (trackId && !countedThisTrackRef.current && cur >= 5) {
       if (!countedSet.has(trackId)) {
         countedThisTrackRef.current = true;
@@ -132,7 +134,7 @@ export default function Player() {
     }
   };
 
-  // Khôi phục vị trí đã nghe khi metadata sẵn sàng
+  // khôi phục vị trí đã nghe
   const restoreResume = () => {
     const a = audioRef.current;
     if (!a) return;
@@ -273,7 +275,6 @@ export default function Player() {
 
   return (
     <>
-      {/* SHELL fixed đáy */}
       <div className="player-shell">
         <div className="player">
           {/* LEFT: meta + mở Queue */}
@@ -291,7 +292,6 @@ export default function Player() {
           {/* CENTER: controls + progress */}
           <div className="center">
             <div className="buttons">
-              {/* Shuffle */}
               <button
                 className={"icon" + (shuffle ? " is-active" : "")}
                 title={shuffle ? "Shuffle: On" : "Shuffle: Off"}
@@ -301,7 +301,6 @@ export default function Player() {
                 <FaShuffle size={18} />
               </button>
 
-              {/* Prev */}
               <button
                 className="icon"
                 title="Prev"
@@ -310,7 +309,6 @@ export default function Player() {
                 <FaBackwardStep size={18} />
               </button>
 
-              {/* Play / Pause */}
               <button
                 className="icon play"
                 title={playing ? "Pause" : "Play"}
@@ -320,7 +318,6 @@ export default function Player() {
                 {playing ? <FaPause size={18} /> : <FaPlay size={18} />}
               </button>
 
-              {/* Next */}
               <button
                 className="icon"
                 title="Next"
@@ -329,7 +326,6 @@ export default function Player() {
                 <FaForwardStep size={18} />
               </button>
 
-              {/* Repeat */}
               <button
                 className={"icon" + (repeat !== "list" ? " is-active" : "")}
                 title={

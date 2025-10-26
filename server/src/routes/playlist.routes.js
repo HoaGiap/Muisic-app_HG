@@ -1,3 +1,4 @@
+// server/src/routes/playlist.routes.js
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.js";
 import {
@@ -13,18 +14,26 @@ import {
 } from "../controllers/playlist.controller.js";
 
 const router = Router();
+
+/**
+ * Toàn bộ playlist API yêu cầu token
+ */
 router.use(requireAuth);
 
-// List & create
+// List & detail
 router.get("/", listPlaylists);
 router.get("/:id", getPlaylist);
+
+// Create
 router.post("/", createPlaylist);
 
-// Update name & reorder & delete
+// Update info
 router.patch("/:id", renamePlaylist);
+router.put("/:id", updatePlaylistMeta);
+
+// Reorder & delete
 router.patch("/:id/reorder", reorderSongs);
 router.delete("/:id", deletePlaylist);
-router.put("/:id", requireAuth, updatePlaylistMeta);
 
 // Add/Remove songs
 router.post("/add", addSong);

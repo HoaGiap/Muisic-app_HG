@@ -5,17 +5,16 @@ import "dotenv/config";
 import cors from "cors";
 import morgan from "morgan";
 
-// ❌ nếu còn import file song.routes.js cũ thì bỏ đi
-// import songRoutes from "./routes/song.routes.js";
-
-// ✅ dùng file mới /routes/songs.js
-import songsRoutes from "./routes/songs.js";
-
+// ✅ routes
+import songsRoutes from "./routes/songs.js"; // (hoặc song.routes.js đã chỉnh sửa)
 import playlistRoutes from "./routes/playlist.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import meRoutes from "./routes/me.routes.js";
-import { requireAuth, requireRole } from "./middlewares/auth.js";
 import adminRoutes from "./routes/admin.routes.js";
+import homeRoutes from "./routes/home.routes.js";
+
+// middlewares
+import { requireAuth, requireRole } from "./middlewares/auth.js";
 import { limitSensitive } from "./middlewares/rateLimit.js";
 
 const app = express();
@@ -83,19 +82,40 @@ app.use(express.json());
 // Health check
 app.get("/", (_req, res) => res.send("Backend is running 🚀"));
 
-// ✅ /api/songs là PUBLIC (GET) — token optional
+/**
+ * Routes
+ * - /api/songs: PUBLIC GET (token optional trong router)
+ */
 app.use("/api/songs", songsRoutes);
 
-// Tuỳ bạn: playlist cần token
+/**
+ * /api/playlists: yêu cầu đăng nhập
+ */
 app.use("/api/playlists", requireAuth, playlistRoutes);
 
-// Upload route đã tự kiểm soát auth/role bên trong
-app.use("/api/upload", requireAuth, requireRole("admin"), uploadRoutes);
-app.use("/api/upload", limitSensitive);
-app.use("/api/admin", limitSensitive);
-// Đồng bộ user vào DB
+/**
+ * Upload: yêu cầu admin + rate limit
+ */
+app.use(
+  "/api/upload",
+  limitSensitive,
+  requireAuth,
+  requireRole("admin"),
+  uploadRoutes
+);
+
+/**
+ * Trang Home (gộp nhiều section)
+ */
+app.use("/api/home", homeRoutes);
+
+/**
+ * Đồng bộ thông tin user (Firebase -> Mongo nếu có)
+ * + Admin APIs
+ */
 app.use("/api/me", meRoutes);
-app.use("/api/admin", adminRoutes); // ✅ chỉ admin (route đã tự kiểm tra)
+app.use("/api/admin", limitSensitive, adminRoutes);
+
 const PORT = process.env.PORT || 8080;
 
 mongoose

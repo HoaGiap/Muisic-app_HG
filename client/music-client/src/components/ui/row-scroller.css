@@ -1,0 +1,102 @@
+.row-wrap {
+  position: relative;
+}
+.row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 180px;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 2px;
+}
+.row > * {
+  scroll-snap-align: start;
+}
+.row-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  display: none;
+}
+.row-wrap:hover .row-nav {
+  display: block;
+}
+.row-nav.left {
+  left: -8px;
+}
+.row-nav.right {
+  right: -8px;
+}
+
+/* Card */
+.card {
+  display: grid;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.card-img {
+  position: relative;
+  aspect-ratio: 1/1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 16px;
+  opacity: 0;
+  transition: 0.2s;
+}
+.card:hover .card-play {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.card.circle .card-img {
+  border-radius: 9999px;
+}
+
+.card-title {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-sub {
+  opacity: 0.75;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dark */
+:root[data-theme="dark"] .row-nav {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
