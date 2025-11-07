@@ -1,91 +1,127 @@
 // server/src/routes/songs.js
-import express from "express";
+import { Router } from "express";
+import mongoose from "mongoose";
 import Song from "../models/Song.js";
+import Artist from "../models/Artist.js";
+import {
+  listSongs,
+  createSong,
+  deleteSong,
+  incPlays,
+  getLyrics,
+  upsertLyrics,
+} from "../controllers/song.controller.js";
 import {
   requireAuth,
   requireAuthOptional,
   requireRole,
 } from "../middlewares/auth.js";
-import { validate, CreateSongSchema } from "../validators/song.schema.js";
 
-const router = express.Router();
+const router = Router();
 
-/** helper: nhận diện admin từ nhiều kiểu claims */
-function isAdminUser(user) {
-  return !!(user && (user.admin || user.isAdmin || user?.claims?.admin));
-}
+/** ---------------- Public / User ---------------- **/
 
-/**
- * Tạo bài hát – chỉ admin
- *  - có validate payload bằng Zod
- */
-router.post(
-  "/",
-  requireAuth,
-  requireRole("admin"),
-  validate(CreateSongSchema),
-  async (req, res) => {
-    try {
-      const song = await Song.create({ ...req.body, createdBy: req.user.uid });
-      res.status(201).json(song);
-    } catch (e) {
-      console.error("Create song error:", e);
-      res.status(400).json({ error: e.message, details: e.errors });
-    }
-  }
-);
+// GET /api/songs  (có hỗ trợ owner=me nếu có token)
+router.get("/", requireAuthOptional, listSongs);
 
-/**
- * Xoá bài hát
- *  - Admin xoá tất cả
- *  - User thường chỉ xoá bài do mình tạo
- */
-router.delete("/:id", requireAuth, async (req, res) => {
+// GET /api/songs/:id  (chi tiết bài hát + nghệ sĩ)
+router.get("/:id", async (req, res) => {
   try {
-    const song = await Song.findById(req.params.id);
-    if (!song) return res.status(404).json({ error: "Không tìm thấy bài hát" });
+    const song = await Song.findById(req.params.id).lean();
+    if (!song) return res.status(404).json({ message: "Song not found" });
 
-    if (isAdminUser(req.user) || song.createdBy === req.user.uid) {
-      await song.deleteOne();
-      return res.json({ ok: true });
+    let artist = null;
+    if (song.artistId) {
+      artist = await Artist.findById(song.artistId)
+        .select("_id name avatarUrl")
+        .lean();
+    } else if (song.artist) {
+      artist = await Artist.findOne({ name: song.artist })
+        .select("_id name avatarUrl")
+        .lean();
     }
-    return res.status(403).json({ error: "Bạn không có quyền xoá bài này" });
+    res.json({ song, artist });
   } catch (e) {
-    console.error("Delete song error:", e);
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-/**
- * Danh sách bài hát – PUBLIC
- *  - Nếu có token: hỗ trợ owner=me (user thường xem bài của mình)
- *  - Admin: mặc định xem tất cả; có thể thêm filter sau nếu cần
- */
-router.get("/", requireAuthOptional, async (req, res) => {
-  try {
-    const { owner, page = 1, limit = 24, sort = "newest" } = req.query;
+// Lyrics
+router.get("/:id/lyrics", getLyrics);
+router.put("/:id/lyrics", requireAuth, upsertLyrics);
 
-    const q = {};
-    if (owner === "me" && req.user && !isAdminUser(req.user)) {
-      q.createdBy = req.user.uid;
+// Tăng lượt nghe
+router.post("/:id/plays", incPlays);
+
+/** ---------------- Create / Delete ---------------- **/
+
+// POST /api/songs  (tùy bạn: yêu cầu admin hay user thường)
+// Nếu muốn chỉ admin: thêm requireRole("admin") vào giữa requireAuth và createSong
+router.post("/", requireAuth, createSong);
+
+// DELETE /api/songs/:id  (controller sẽ kiểm quyền: admin xoá tất cả, user xoá bài của mình)
+router.delete("/:id", requireAuth, deleteSong);
+
+/** ---------------- Admin: Update ---------------- **/
+
+// PATCH /api/songs/:id  (admin)
+router.patch("/:id", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const {
+      title,
+      artist, // string hiển thị
+      artistId, // ObjectId -> gán quan hệ
+      coverUrl,
+      audioUrl,
+      duration,
+      isPublic,
+      popularity,
+      albumId, // ⬅️ THÊM: nhận albumId từ client
+    } = req.body || {};
+
+    const update = {};
+    if (typeof title === "string") update.title = title.trim();
+    if (typeof artist === "string") update.artist = artist.trim();
+    if (typeof coverUrl === "string") update.coverUrl = coverUrl.trim();
+    if (typeof audioUrl === "string") update.audioUrl = audioUrl.trim();
+    if (typeof duration === "number") update.duration = duration;
+    if (typeof isPublic === "boolean") update.isPublic = isPublic;
+    if (typeof popularity === "number") update.popularity = popularity;
+
+    // artistId (đồng bộ tên artist)
+    if (typeof artistId !== "undefined" && artistId !== null) {
+      if (!mongoose.Types.ObjectId.isValid(artistId)) {
+        return res.status(400).json({ message: "Invalid artistId" });
+      }
+      update.artistId = new mongoose.Types.ObjectId(artistId);
+      const a = await Artist.findById(artistId).select("name").lean();
+      if (a?.name) update.artist = a.name;
+    } else if (artistId === null) {
+      // cho phép xoá liên kết nghệ sĩ
+      update.artistId = null;
     }
 
-    const sortOpt = sort === "oldest" ? { createdAt: 1 } : { createdAt: -1 };
-    const pageNum = Math.max(1, Number(page) || 1);
-    const lim = Math.min(100, Math.max(1, Number(limit) || 24));
+    // ⬅️ albumId: gán hoặc gỡ khỏi album
+    if (typeof albumId !== "undefined" && albumId !== null) {
+      if (!mongoose.Types.ObjectId.isValid(albumId)) {
+        return res.status(400).json({ message: "Invalid albumId" });
+      }
+      update.albumId = new mongoose.Types.ObjectId(albumId);
+    } else if (albumId === null) {
+      update.albumId = null;
+    }
 
-    const [items, total] = await Promise.all([
-      Song.find(q)
-        .sort(sortOpt)
-        .skip((pageNum - 1) * lim)
-        .limit(lim),
-      Song.countDocuments(q),
-    ]);
-
-    res.json({ items, total, page: pageNum });
+    const song = await Song.findByIdAndUpdate(
+      req.params.id,
+      { $set: update },
+      { new: true }
+    );
+    if (!song) return res.status(404).json({ message: "Song not found" });
+    res.json({ ok: true, song });
   } catch (e) {
-    console.error("List songs error:", e);
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

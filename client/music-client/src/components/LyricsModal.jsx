@@ -1,10 +1,47 @@
-import { useEffect, useState } from "react";
+// client/src/components/LyricsModal.jsx
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import toast from "react-hot-toast";
 
+// Nhận diện dòng LRC có timestamp
+const LRC_TAG = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?]/;
+
+// Loại timestamp để hiển thị như lời thường
+function stripLrc(lrc = "") {
+  if (!lrc) return "";
+  return lrc
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\[\d{1,2}:\d{2}(?:\.\d{1,2})?]/g, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Lấy dữ liệu lyrics từ nhiều format backend có thể trả về
+function normalizeLyricsPayload(payload) {
+  // Ưu tiên có trường riêng
+  const lrc =
+    payload?.lrc ||
+    (typeof payload?.lyrics === "string" && LRC_TAG.test(payload.lyrics)
+      ? payload.lyrics
+      : "");
+
+  // Lời thường
+  const plain =
+    (payload?.lyrics && typeof payload.lyrics === "object"
+      ? payload.lyrics.text || ""
+      : typeof payload?.lyrics === "string" && !LRC_TAG.test(payload.lyrics)
+      ? payload.lyrics
+      : "") || "";
+
+  return { lrc, plain };
+}
+
 export default function LyricsModal({ open, onClose, song }) {
   const songId = song?._id || song?.id;
-  const [text, setText] = useState("");
+
+  // state dữ liệu
+  const [lrc, setLrc] = useState("");
+  const [plain, setPlain] = useState("");
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -13,15 +50,35 @@ export default function LyricsModal({ open, onClose, song }) {
     setLoading(true);
     api
       .get(`/songs/${songId}/lyrics`)
-      .then((r) => setText(r.data?.lyrics || ""))
-      .catch(() => setText(""))
+      .then(({ data }) => {
+        const { lrc: lrcIn, plain: plainIn } = normalizeLyricsPayload(
+          data || {}
+        );
+        setLrc(lrcIn || "");
+        setPlain(plainIn || "");
+      })
+      .catch(() => {
+        setLrc("");
+        setPlain("");
+      })
       .finally(() => setLoading(false));
   }, [open, songId]);
+
+  const displayText = useMemo(() => {
+    // Ưu tiên hiển thị lời thường; nếu không có thì strip LRC
+    if (plain && plain.trim()) return plain;
+    if (lrc && lrc.trim()) return stripLrc(lrc);
+    return "";
+  }, [lrc, plain]);
 
   const save = async () => {
     if (!songId) return;
     try {
-      await api.put(`/songs/${songId}/lyrics`, { lyrics: text });
+      // Gửi cả 2 để server nào cũng nhận được
+      await api.put(`/songs/${songId}/lyrics`, {
+        lrc,
+        lyrics: plain, // lời thường
+      });
       toast.success("Đã lưu lời bài hát");
       setEditing(false);
     } catch (e) {
@@ -37,7 +94,7 @@ export default function LyricsModal({ open, onClose, song }) {
   return (
     <div style={backdrop} onClick={onClose}>
       <div style={panel} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <h3 style={{ margin: 0, flex: 1 }}>
             Lời bài hát — {song?.title || ""}
           </h3>
@@ -49,25 +106,48 @@ export default function LyricsModal({ open, onClose, song }) {
               <button onClick={() => setEditing(false)}>Hủy</button>
             </>
           )}
-          <button onClick={onClose} style={{ marginLeft: 8 }}>
-            ✖
-          </button>
+          <button onClick={onClose}>✖</button>
         </div>
 
         <div style={{ marginTop: 12, maxHeight: "60vh", overflow: "auto" }}>
           {loading ? (
             <p>Đang tải…</p>
           ) : editing ? (
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={18}
-              style={{ width: "100%", fontFamily: "inherit", lineHeight: 1.6 }}
-              placeholder="Nhập lời bài hát…"
-            />
-          ) : text ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                  LRC (có time)
+                </div>
+                <textarea
+                  value={lrc}
+                  onChange={(e) => setLrc(e.target.value)}
+                  rows={16}
+                  style={ta}
+                  placeholder="[00:12.34] First line"
+                />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                  Lời thường (không time)
+                </div>
+                <textarea
+                  value={plain}
+                  onChange={(e) => setPlain(e.target.value)}
+                  rows={16}
+                  style={ta}
+                  placeholder="Nếu không có LRC, bạn nhập lời thường tại đây"
+                />
+              </div>
+            </div>
+          ) : displayText ? (
             <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {text}
+              {displayText}
             </pre>
           ) : (
             <p style={{ opacity: 0.7 }}>(Chưa có lời bài hát)</p>
@@ -96,4 +176,13 @@ const panel = {
   borderRadius: 12,
   padding: 16,
   boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+};
+
+const ta = {
+  width: "100%",
+  fontFamily: "inherit",
+  fontSize: 14,
+  padding: 8,
+  border: "1px solid #ddd",
+  borderRadius: 8,
 };

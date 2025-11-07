@@ -1,15 +1,73 @@
+// client/src/components/LyricsPanel.jsx
 import { useAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { currentTrackAtom } from "./playerState";
-import { progressAtom, lyricsOpenAtom } from "./playerState";
+import { currentTrackAtom, progressAtom, lyricsOpenAtom } from "./playerState";
 import { api } from "../api";
+
+/** Regex nhận diện tag LRC [mm:ss.xx] */
+const LRC_TAG = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?]/;
+
+/** Bỏ timestamp để hiện như lời thường */
+function stripLrc(lrc = "") {
+  if (!lrc) return "";
+  return lrc
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\[\d{1,2}:\d{2}(?:\.\d{1,2})?]/g, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Parse LRC -> mảng cues { t: seconds, l: line } */
+function parseLrc(lrc = "") {
+  if (!lrc) return [];
+  const lines = lrc.split(/\r?\n/);
+  const cues = [];
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    // Một dòng LRC có thể có nhiều tag thời gian
+    const tags = [...raw.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?]/g)];
+    if (!tags.length) continue;
+    // Nội dung sau tag cuối cùng
+    const lyric = raw
+      .replace(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?]/g, "")
+      .trim();
+    if (!lyric) continue;
+    for (const m of tags) {
+      const mm = parseInt(m[1], 10) || 0;
+      const ss = parseInt(m[2], 10) || 0;
+      const xx = parseInt(m[3] || "0", 10) || 0;
+      const t = mm * 60 + ss + xx / 100; // xx là centiseconds (2 chữ số) -> /100
+      cues.push({ t, l: lyric });
+    }
+  }
+  // sắp xếp theo thời gian
+  cues.sort((a, b) => a.t - b.t);
+  return cues;
+}
+
+/** Chuẩn hoá payload từ server về { lrc, plain } */
+function normalizeLyricsPayload(payload) {
+  let lrc = payload?.lrc || "";
+  let plain = "";
+
+  if (payload?.lyrics && typeof payload.lyrics === "object") {
+    // { lyrics: { text, language, ... } }
+    plain = payload.lyrics.text || "";
+  } else if (typeof payload?.lyrics === "string") {
+    // { lyrics: "..." } -> có thể là LRC hoặc plain
+    if (LRC_TAG.test(payload.lyrics)) lrc = lrc || payload.lyrics;
+    else plain = payload.lyrics;
+  }
+  if (!plain && lrc) plain = stripLrc(lrc);
+  return { lrc, plain };
+}
 
 export default function LyricsPanel() {
   const [open, setOpen] = useAtom(lyricsOpenAtom);
   const [track] = useAtom(currentTrackAtom);
   const [progress] = useAtom(progressAtom);
 
-  const [cues, setCues] = useState([]); // [{t,l}]
+  const [cues, setCues] = useState([]); // [{ t, l }]
   const [plain, setPlain] = useState(""); // fallback khi không có LRC
   const wrapRef = useRef(null);
 
@@ -17,11 +75,13 @@ export default function LyricsPanel() {
   useEffect(() => {
     if (!open || (!track?._id && !track?.id)) return;
     const id = track._id || track.id;
+
     api
       .get(`/songs/${id}/lyrics`)
       .then(({ data }) => {
-        setCues(Array.isArray(data?.cues) ? data.cues : []);
-        setPlain(String(data?.lyrics || ""));
+        const { lrc, plain } = normalizeLyricsPayload(data || {});
+        setCues(lrc ? parseLrc(lrc) : []);
+        setPlain(plain || "");
       })
       .catch(() => {
         setCues([]);
@@ -32,7 +92,7 @@ export default function LyricsPanel() {
   // index hiện tại theo progress
   const activeIdx = useMemo(() => {
     if (!cues.length) return -1;
-    // tìm cue có t <= progress gần nhất (binary search ngắn gọn)
+    // tìm cue có t <= progress gần nhất (binary search)
     let lo = 0,
       hi = cues.length - 1,
       ans = -1;
@@ -84,7 +144,7 @@ export default function LyricsPanel() {
           <div ref={wrapRef} style={scrollArea}>
             {cues.map((c, i) => (
               <div
-                key={i}
+                key={`${i}-${c.t}`}
                 data-i={i}
                 style={{
                   padding: "6px 4px",

@@ -2,31 +2,57 @@ import Song from "../models/Song.js";
 
 /** GET /api/songs?q=...&owner=me&page=&limit=&sort= */
 export async function listSongs(req, res) {
-  const { q, owner, page = 1, limit = 50, sort = "newest" } = req.query;
+  const {
+    q,
+    owner,
+    page = 1,
+    limit = 50,
+    sort = "newest",
+    albumId,
+    withoutAlbum,
+  } = req.query;
 
   const filter = {};
+
+  // text search
+  const textOr = [];
   if (q) {
-    filter.$or = [
-      { title: new RegExp(q, "i") },
-      { artist: new RegExp(q, "i") },
-    ];
+    textOr.push({ title: new RegExp(q, "i") }, { artist: new RegExp(q, "i") });
   }
+
+  // owner
   if (owner === "me" && req.user) {
-    filter.ownerUid = req.user.uid;
+    filter.createdBy = req.user.uid;
+  }
+
+  // album filter
+  if (albumId) {
+    filter.albumId = albumId;
+  } else if (String(withoutAlbum) === "1") {
+    // các bài chưa gán album
+    filter.$or = [{ albumId: { $exists: false } }, { albumId: null }];
+  }
+
+  // gộp điều kiện text search (không đè $or bên trên)
+  if (textOr.length) {
+    if (filter.$or) filter.$and = [{ $or: textOr }, { $or: filter.$or }];
+    else filter.$or = textOr;
   }
 
   let sortBy = { createdAt: -1 };
   if (sort === "popular") sortBy = { plays: -1, createdAt: -1 };
   else if (sort === "az") sortBy = { title: 1 };
 
-  const skip = (Number(page) - 1) * Number(limit);
+  const pageNum = Math.max(1, Number(page) || 1);
+  const lim = Math.min(100, Math.max(1, Number(limit) || 50));
+  const skip = (pageNum - 1) * lim;
 
   const [items, total] = await Promise.all([
-    Song.find(filter).sort(sortBy).skip(skip).limit(Number(limit)),
+    Song.find(filter).sort(sortBy).skip(skip).limit(lim),
     Song.countDocuments(filter),
   ]);
 
-  res.json({ items, total, page: Number(page) });
+  res.json({ items, total, page: pageNum });
 }
 
 /** POST /api/songs */
@@ -43,7 +69,7 @@ export async function createSong(req, res) {
     duration: duration ? +duration : null,
     audioUrl,
     coverUrl: coverUrl || null,
-    ownerUid: req.user.uid,
+    createdBy: req.user.uid,
     lyrics: lyrics || "",
   });
   res.status(201).json(s);
@@ -53,7 +79,7 @@ export async function createSong(req, res) {
 export async function deleteSong(req, res) {
   const song = await Song.findById(req.params.id);
   if (!song) return res.status(404).json({ error: "Not found" });
-  if (!req.user || song.ownerUid !== req.user.uid) {
+  if (!canEdit(req.user, song)) {
     return res.status(403).json({ error: "forbidden" });
   }
   await song.deleteOne();
@@ -72,84 +98,74 @@ export async function incPlays(req, res) {
   res.json({ ok: true, plays: s.plays });
 }
 
-/* ---------------- LRC helpers ---------------- */
-function parseLrc(text = "") {
-  const cues = [];
-  const lines = String(text).split(/\r?\n/);
-  const timeRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?\]/g;
-
-  for (const raw of lines) {
-    timeRe.lastIndex = 0;
-    let m;
-    const lineText = raw.replace(timeRe, "").trim();
-    if (!lineText) continue;
-
-    while ((m = timeRe.exec(raw))) {
-      const min = +m[1];
-      const sec = +m[2];
-      const cs = m[3] ? +m[3] : 0; // centiseconds
-      const t = min * 60 + sec + cs / 100;
-      cues.push({ t, l: lineText });
-    }
-  }
-  cues.sort((a, b) => a.t - b.t);
-  return cues;
-}
-
-function formatTime(sec) {
-  const t = Math.max(0, +sec || 0);
-  const m = Math.floor(t / 60);
-  const s = Math.floor(t % 60);
-  const cs = Math.round((t - Math.floor(t)) * 100);
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(
-    cs
-  ).padStart(2, "0")}`;
-}
-
-/** GET /api/songs/:id/lyrics -> { lyrics, lrc, cues } */
 export async function getLyrics(req, res) {
-  const { id } = req.params;
-  const s = await Song.findById(id).select("lyrics lyricsLrc");
-  if (!s) return res.status(404).json({ error: "Not found" });
+  try {
+    const song = await Song.findById(req.params.id).lean();
+    if (!song) return res.status(404).json({ message: "Song not found" });
 
-  const lrcText = (s.lyricsLrc || [])
-    .map((c) => `[${formatTime(c.t)}] ${c.l}`)
-    .join("\n");
+    // Chuẩn hoá output theo LyricsEditor: { lrc, lyrics }
+    // Dữ liệu cũ có thể là string, hoặc object { text, language, lrc?, updatedAt? }
+    let lrc = "";
+    let plain = "";
 
-  res.json({
-    lyrics: s.lyrics || "",
-    lrc: lrcText,
-    cues: s.lyricsLrc || [],
-  });
+    if (typeof song.lyrics === "string") {
+      plain = song.lyrics;
+    } else if (song.lyrics && typeof song.lyrics === "object") {
+      plain = song.lyrics.text || "";
+      lrc = song.lyrics.lrc || "";
+    }
+
+    return res.json({ lrc, lyrics: plain });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
 }
 
-/** PUT /api/songs/:id/lyrics
- * body: { lrc?: string, lyrics?: string }
- * - nếu có lrc -> parse và lưu vào lyricsLrc
- * - lyrics (không time) lưu vào lyrics
- */
+// user có thể sửa nếu là chủ bài hát; admin sửa tất cả
+function canEdit(user, song) {
+  if (!user) return false;
+  if (user.admin || user.isAdmin || user?.claims?.admin) return true;
+  return String(song.createdBy || "") === String(user.uid || "");
+}
+
 export async function upsertLyrics(req, res) {
-  const { id } = req.params;
-  const { lrc = "", lyrics = "" } = req.body;
+  try {
+    const song = await Song.findById(req.params.id).lean();
+    if (!song) return res.status(404).json({ message: "Song not found" });
+    if (!canEdit(req.user, song))
+      return res.status(403).json({ message: "Forbidden" });
 
-  const s = await Song.findById(id);
-  if (!s) return res.status(404).json({ error: "Not found" });
-  if (!req.user || s.ownerUid !== req.user.uid) {
-    return res.status(403).json({ error: "forbidden" });
+    // Nhận body đúng theo LyricsEditor: { lrc, lyrics }
+    const lrc = typeof req.body?.lrc === "string" ? req.body.lrc : "";
+    const plain = typeof req.body?.lyrics === "string" ? req.body.lyrics : "";
+
+    const now = new Date();
+
+    // Nếu lyrics hiện là string -> set mới cả object
+    let updateDoc;
+    if (typeof song.lyrics === "string") {
+      updateDoc = {
+        $set: { lyrics: { text: plain, lrc, language: "", updatedAt: now } },
+      };
+    } else {
+      updateDoc = {
+        $set: {
+          "lyrics.text": plain,
+          "lyrics.lrc": lrc,
+          "lyrics.updatedAt": now,
+        },
+        $setOnInsert: { "lyrics.language": "" },
+      };
+    }
+
+    await Song.updateOne({ _id: req.params.id }, updateDoc, {
+      runValidators: false,
+    });
+
+    return res.json({ ok: true, lrc, lyrics: plain, updatedAt: now });
+  } catch (e) {
+    console.error("upsertLyrics error:", e);
+    res.status(500).json({ message: "Server error" });
   }
-
-  if (typeof lrc === "string" && lrc.trim()) {
-    s.lyricsLrc = parseLrc(lrc);
-  }
-  if (typeof lyrics === "string") {
-    s.lyrics = lyrics;
-  }
-
-  await s.save();
-
-  res.json({
-    ok: true,
-    lyrics: s.lyrics,
-    cues: s.lyricsLrc,
-  });
 }

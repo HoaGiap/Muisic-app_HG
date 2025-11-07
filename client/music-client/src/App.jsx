@@ -20,7 +20,8 @@ import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import Admin from "./pages/Admin.jsx"; // ✅ thêm
-
+import AdminAlbum from "./pages/AdminAlbum.jsx";
+import AdminSong from "./pages/AdminSong.jsx";
 import QueuePanel from "./components/QueuePanel.jsx";
 import Player from "./components/Player.jsx";
 import usePlayerPersistence from "./hooks/usePlayerPersistence.js";
@@ -28,6 +29,11 @@ import useAuthClaims from "./auth/useAuthClaims.js";
 import AdminRoute from "./routes/AdminRoute.jsx";
 import { auth, logout } from "./auth/firebase";
 import VerifyBanner from "./components/VerifyBanner.jsx";
+import ArtistDetail from "./pages/ArtistDetail.jsx";
+import AlbumDetail from "./pages/AlbumDetail.jsx";
+
+import AdminArtist from "./pages/AdminArtist.jsx";
+
 function AppShell() {
   usePlayerPersistence();
   const navigate = useNavigate();
@@ -110,6 +116,21 @@ function AppShell() {
             </NavLink>
           )}
           {isAdmin && (
+            <NavLink to="/admin/artist" style={linkStyle}>
+              Manage Artists
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/admin/album" style={linkStyle}>
+              Manage Albums
+            </NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/admin/song" style={linkStyle}>
+              Manage Songs
+            </NavLink>
+          )}
+          {isAdmin && (
             <NavLink to="/admin" style={linkStyle}>
               Admin
             </NavLink>
@@ -172,6 +193,7 @@ function AppShell() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/reset" element={<ResetPassword />} />
+
             {/* Admin-only routes */}
             <Route
               path="/upload"
@@ -189,16 +211,45 @@ function AppShell() {
                 </AdminRoute>
               }
             />
+
+            {/* ✅ KHÔNG lồng <Routes> ở đây nữa */}
+            <Route
+              path="/admin/artist"
+              element={
+                <AdminRoute>
+                  <AdminArtist />
+                </AdminRoute>
+              }
+            />
+
             <Route
               path="/admin"
               element={
                 <AdminRoute>
-                  <Admin /> {/* ✅ trang quản trị */}
+                  <Admin />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/album"
+              element={
+                <AdminRoute>
+                  <AdminAlbum />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/song"
+              element={
+                <AdminRoute>
+                  <AdminSong />
                 </AdminRoute>
               }
             />
 
             {/* Details */}
+            <Route path="/artist/:id" element={<ArtistDetail />} />
+            <Route path="/album/:id" element={<AlbumDetail />} />
             <Route path="/song/:id" element={<SongDetail />} />
             <Route path="/playlist/:id" element={<PlaylistDetail />} />
           </Routes>

@@ -17,6 +17,9 @@ import homeRoutes from "./routes/home.routes.js";
 import { requireAuth, requireRole } from "./middlewares/auth.js";
 import { limitSensitive } from "./middlewares/rateLimit.js";
 
+import artistRoutes from "./routes/artist.routes.js";
+import albumRoutes from "./routes/album.routes.js";
+
 const app = express();
 
 /* ====================== CORS ====================== */
@@ -116,6 +119,8 @@ app.use("/api/home", homeRoutes);
 app.use("/api/me", meRoutes);
 app.use("/api/admin", limitSensitive, adminRoutes);
 
+app.use("/api/artists", artistRoutes);
+app.use("/api/albums", albumRoutes);
 const PORT = process.env.PORT || 8080;
 
 mongoose

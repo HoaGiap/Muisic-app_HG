@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "backfill:artistId": "node scripts/backfill_artistId.js",
+    "seed:albums": "node scripts/seed_albums.js"
   },
   "engines": {
     "node": ">=18"

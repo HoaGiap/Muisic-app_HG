@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
 import usePlayerQueue from "../hooks/usePlayerQueue";
+import { Link } from "react-router-dom";
 
 /**
  * Backend trả từ GET /home
@@ -43,15 +44,13 @@ const Grid = ({ children, min = 180 }) => (
 );
 
 // Ô vuông (Album / Radio)
-const Tile = ({ title, subtitle, image, onClick }) => (
+const Tile = ({ title, subtitle, image }) => (
   <div
-    onClick={onClick}
     style={{
       borderRadius: 14,
       padding: 12,
       background: "var(--panel, #fff)",
       border: "1px solid var(--border, rgba(0,0,0,.08))",
-      cursor: "pointer",
       display: "grid",
       gap: 10,
       transition: "transform .12s ease",
@@ -82,19 +81,20 @@ const Tile = ({ title, subtitle, image, onClick }) => (
 );
 
 // Ô tròn (Nghệ sĩ)
-const CircleTile = ({ title, image, onClick }) => (
+const CircleTile = ({ title, image }) => (
   <div
-    onClick={onClick}
     style={{
       borderRadius: 14,
       padding: 12,
       background: "var(--panel, #fff)",
       border: "1px solid var(--border, rgba(0,0,0,.08))",
-      cursor: "pointer",
       display: "grid",
       gap: 10,
       justifyItems: "center",
+      transition: "transform .12s ease",
     }}
+    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
+    onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
   >
     <div
       style={{
@@ -146,7 +146,6 @@ export default function Home() {
         console.error(e);
         if (mounted) {
           setErr(e?.response?.data?.error || e.message || "Lỗi tải dữ liệu");
-          // Fallback: kéo list phổ biến nhét vào trending
           try {
             const { data: list } = await api.get("/songs", {
               params: { sort: "popular", page: 1, limit: 24 },
@@ -173,7 +172,7 @@ export default function Home() {
     replaceQueue(list, { startIndex: 0, playNow: true });
   };
 
-  // ▶ Phát list trending từ một index (nếu bạn muốn click vào “Xem tất cả”)
+  // ▶ Phát list trending từ một index
   const playTrendingFrom = (startIndex) => {
     const list = trending.items || [];
     if (!list.length) return;
@@ -222,7 +221,6 @@ export default function Home() {
               song={s}
               list={trending.items}
               index={i}
-              // Nếu bạn muốn click card là phát từ bài đó:
               onPlayListFrom={() => playTrendingFrom(i)}
             />
           ))}
@@ -234,14 +232,27 @@ export default function Home() {
         {loading && <p>Đang tải…</p>}
         {!loading && artists.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
         <Grid min={160}>
-          {(artists.items || []).map((a, i) => (
-            <CircleTile
-              key={a._id || a.id || i}
-              title={a.name || a.title || "Nghệ sĩ"}
-              image={a.image || a.coverUrl || ""}
-              onClick={() => {}}
-            />
-          ))}
+          {(artists.items || []).map((a, i) => {
+            const href = a._id
+              ? `/artist/${a._id}`
+              : `/artist/${encodeURIComponent(a.name || a.title || "")}`;
+            return (
+              <Link
+                key={a._id || a.id || i}
+                to={href}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "block",
+                }}
+              >
+                <CircleTile
+                  title={a.name || a.title || "Nghệ sĩ"}
+                  image={a.avatarUrl || a.image || ""}
+                />
+              </Link>
+            );
+          })}
         </Grid>
       </Section>
 
@@ -251,13 +262,25 @@ export default function Home() {
         {!loading && albums.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
         <Grid min={180}>
           {(albums.items || []).map((al, i) => (
-            <Tile
+            <Link
               key={al._id || al.id || i}
-              title={al.title || al.name || "Album"}
-              subtitle={al.artistName || al.artist || ""}
-              image={al.coverUrl || al.image || ""}
-              onClick={() => {}}
-            />
+              to={
+                al._id
+                  ? `/album/${al._id}`
+                  : `/album/${encodeURIComponent(al.title || al.name || "")}`
+              }
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                display: "block",
+              }}
+            >
+              <Tile
+                title={al.title || al.name || "Album"}
+                subtitle={al.artistName || al.artist || ""}
+                image={al.coverUrl || al.image || ""}
+              />
+            </Link>
           ))}
         </Grid>
       </Section>
@@ -273,7 +296,6 @@ export default function Home() {
               title={r.title || "Radio"}
               subtitle={r.description || ""}
               image={r.coverUrl || r.image || ""}
-              onClick={() => {}}
             />
           ))}
         </Grid>

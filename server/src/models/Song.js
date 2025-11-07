@@ -15,7 +15,11 @@ const SongSchema = new mongoose.Schema(
     },
     audioUrl: { type: String, required: [true, "Thiếu đường dẫn file audio"] },
     coverUrl: { type: String, default: "" },
-    lyrics: { type: String, default: "" },
+    lyrics: {
+      text: { type: String, default: "" },
+      language: { type: String, default: "" },
+      updatedAt: { type: Date },
+    },
     duration: {
       type: Number, // giây
       required: [true, "Thiếu độ dài bài hát"],
