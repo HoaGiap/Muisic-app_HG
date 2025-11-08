@@ -1,5 +1,6 @@
 // client/src/pages/Search.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom"; // ⬅️ thêm
 import { searchSongs, searchArtists, searchAlbums } from "../api";
 import SongItem from "../components/SongItem.jsx";
 
@@ -67,12 +68,20 @@ function AlbumCard({ album }) {
 }
 
 export default function Search() {
-  const [q, setQ] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams(); // ⬅️ thêm
+  const initialQ = useMemo(() => searchParams.get("q") || "", [searchParams]); // ⬅️ thêm
+
+  const [q, setQ] = useState(initialQ);
   const [loading, setLoading] = useState(false);
 
   const [songs, setSongs] = useState([]);
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
+
+  // đồng bộ khi URL ?q= thay đổi (đi từ Home sang)
+  useEffect(() => {
+    setQ(initialQ);
+  }, [initialQ]);
 
   // Debounce & fetch 3 nguồn dữ liệu
   useEffect(() => {
@@ -87,11 +96,8 @@ export default function Search() {
       setLoading(true);
       try {
         const [sRs, aRs, alRs] = await Promise.all([
-          // bài hát: lấy 30 kết quả
           searchSongs({ q, limit: 30 }),
-          // nghệ sĩ: 12 kết quả
           searchArtists(q, 12),
-          // album: 18 kết quả
           searchAlbums(q, 18),
         ]);
         if (!cancelled) {
@@ -114,6 +120,12 @@ export default function Search() {
     [q, loading, songs.length, artists.length, albums.length]
   );
 
+  // Tuỳ chọn: nhấn Enter để cập nhật lại URL (?q=…) cho đồng nhất
+  const commitToUrl = () => {
+    const s = q.trim();
+    setSearchParams(s ? { q: s } : {});
+  };
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <h2>Tìm kiếm</h2>
@@ -121,6 +133,7 @@ export default function Search() {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && commitToUrl()} // ⬅️ giữ UI, thêm Enter sync URL
         placeholder="Nhập tên bài hát, nghệ sĩ hoặc album…"
         style={{
           padding: 8,

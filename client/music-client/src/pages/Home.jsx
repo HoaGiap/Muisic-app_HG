@@ -1,73 +1,47 @@
+// src/pages/Home.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
 import usePlayerQueue from "../hooks/usePlayerQueue";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { HorizontalScroller } from "../components/HorizontalScroller.jsx";
 
-/**
- * Backend trả từ GET /home
- * {
- *   trending: { title, items: Song[] },
- *   artists:  { title, items: Artist[] },
- *   albums:   { title, items: Album[] },
- *   radios:   { title, items: Radio[] }
- * }
- */
-
+/* ---------- Section & Grid ---------- */
 const Section = ({ title, children, action }) => (
-  <section style={{ margin: "24px 0" }}>
+  <section style={{ margin: "36px 0" }}>
     <div
       style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 12,
+        marginBottom: 16,
       }}
     >
-      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{title}</h3>
       {action}
     </div>
     {children}
   </section>
 );
 
-const Grid = ({ children, min = 180 }) => (
+const Grid = ({ children, min = 200, gap = 16 }) => (
   <div
     style={{
       display: "grid",
       gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))`,
-      gap: 14,
+      gap,
     }}
   >
     {children}
   </div>
 );
 
-// Ô vuông (Album / Radio)
+/* ---------- Tiles ---------- */
 const Tile = ({ title, subtitle, image }) => (
-  <div
-    style={{
-      borderRadius: 14,
-      padding: 12,
-      background: "var(--panel, #fff)",
-      border: "1px solid var(--border, rgba(0,0,0,.08))",
-      display: "grid",
-      gap: 10,
-      transition: "transform .12s ease",
-    }}
-    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
-  >
+  <div className="card tile">
     <div
-      style={{
-        width: "100%",
-        aspectRatio: "1 / 1",
-        borderRadius: 12,
-        background: "#ddd",
-        backgroundImage: image ? `url(${image})` : "none",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+      className="tile-cover"
+      style={{ backgroundImage: image ? `url(${image})` : "none" }}
     />
     <div style={{ display: "grid", gap: 4 }}>
       <div style={{ fontWeight: 700, lineHeight: 1.25 }}>{title}</div>
@@ -80,37 +54,17 @@ const Tile = ({ title, subtitle, image }) => (
   </div>
 );
 
-// Ô tròn (Nghệ sĩ)
 const CircleTile = ({ title, image }) => (
-  <div
-    style={{
-      borderRadius: 14,
-      padding: 12,
-      background: "var(--panel, #fff)",
-      border: "1px solid var(--border, rgba(0,0,0,.08))",
-      display: "grid",
-      gap: 10,
-      justifyItems: "center",
-      transition: "transform .12s ease",
-    }}
-    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = "none")}
-  >
+  <div className="card tile circle">
     <div
-      style={{
-        width: "100%",
-        aspectRatio: "1 / 1",
-        borderRadius: "999px",
-        background: "#ddd",
-        backgroundImage: image ? `url(${image})` : "none",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+      className="tile-cover circle"
+      style={{ backgroundImage: image ? `url(${image})` : "none" }}
     />
     <div style={{ fontWeight: 700, textAlign: "center" }}>{title}</div>
   </div>
 );
 
+/* ---------- Page ---------- */
 export default function Home() {
   const [data, setData] = useState({
     trending: { title: "Bài hát thịnh hành", items: [] },
@@ -121,8 +75,16 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // Hook hàng đợi
   const { replaceQueue, playListFrom } = usePlayerQueue();
+  const navigate = useNavigate();
+
+  // Search state
+  const [q, setQ] = useState("");
+  const goSearch = () => {
+    const s = q.trim();
+    if (!s) return;
+    navigate(`/search?q=${encodeURIComponent(s)}`);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -143,9 +105,9 @@ export default function Home() {
         };
         if (mounted) setData(out);
       } catch (e) {
-        console.error(e);
         if (mounted) {
           setErr(e?.response?.data?.error || e.message || "Lỗi tải dữ liệu");
+          // Fallback phần Trending
           try {
             const { data: list } = await api.get("/songs", {
               params: { sort: "popular", page: 1, limit: 24 },
@@ -155,7 +117,7 @@ export default function Home() {
           } catch {}
         }
       } finally {
-        if (mounted) setLoading(false);
+        mounted && setLoading(false);
       }
     })();
     return () => {
@@ -165,43 +127,80 @@ export default function Home() {
 
   const { trending, artists, albums, radios } = data;
 
-  // ▶ Phát tất cả Trending (thay queue và play từ 0)
   const playAllTrending = () => {
     const list = trending.items || [];
     if (!list.length) return;
     replaceQueue(list, { startIndex: 0, playNow: true });
   };
-
-  // ▶ Phát list trending từ một index
   const playTrendingFrom = (startIndex) => {
     const list = trending.items || [];
     if (!list.length) return;
     playListFrom(list, startIndex);
   };
 
+  // Bước cuộn mỗi lần (~70% chiều rộng viewport, min 480, max 900)
+  const scrollStep =
+    typeof window !== "undefined"
+      ? Math.round(Math.min(900, Math.max(480, window.innerWidth * 0.7)))
+      : 600;
+
   return (
-    <div style={{ display: "grid", gap: 28 }}>
-      {/* Trending songs */}
+    <div
+      className="home-container"
+      style={{ padding: "24px clamp(16px,4vw,40px) 36px" }}
+    >
+      {/* 🔎 Thanh tìm kiếm tối giản */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 10,
+          maxWidth: 640,
+          marginBottom: 32,
+        }}
+      >
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && goSearch()}
+          placeholder="Tìm bài hát, nghệ sĩ, album…"
+          style={{ flex: 1, borderRadius: 10 }}
+          aria-label="Tìm kiếm"
+        />
+        <button
+          onClick={goSearch}
+          className="icon-only"
+          aria-label="Tìm kiếm"
+          title="Tìm kiếm"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <circle
+              cx="11"
+              cy="11"
+              r="6"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Trending */}
       <Section
         title={trending.title || "Bài hát thịnh hành"}
         action={
           trending.items?.length > 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ opacity: 0.7, fontSize: 13 }}>
                 {trending.items.length} bài
               </span>
               <button
                 onClick={playAllTrending}
-                style={{
-                  height: 32,
-                  border: 0,
-                  padding: "0 12px",
-                  borderRadius: 10,
-                  fontWeight: 800,
-                  background: "var(--accent, #22c55e)",
-                  color: "#000",
-                  cursor: "pointer",
-                }}
+                className="pill-strong"
                 title="Phát tất cả"
               >
                 ▶ Phát tất cả
@@ -211,27 +210,30 @@ export default function Home() {
         }
       >
         {loading && <p>Đang tải…</p>}
-        {err && <p style={{ color: "crimson" }}>{err}</p>}
+        {err && <p className="text-warn">{err}</p>}
         {!loading && trending.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
 
-        <Grid min={220}>
+        {/* 2 hàng + cuộn ngang bằng nút */}
+        <HorizontalScroller className="row-scroller" step={scrollStep}>
           {(trending.items || []).map((s, i) => (
             <SongItem
               key={s._id || s.id || i}
               song={s}
               list={trending.items}
               index={i}
-              onPlayListFrom={() => playTrendingFrom(i)}
+              compact
             />
           ))}
-        </Grid>
+        </HorizontalScroller>
       </Section>
 
       {/* Artists */}
       <Section title={artists.title || "Nghệ sĩ phổ biến"}>
         {loading && <p>Đang tải…</p>}
         {!loading && artists.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
-        <Grid min={160}>
+
+        {/* 2 hàng + cuộn ngang với thẻ Nghệ sĩ (tròn) */}
+        <HorizontalScroller className="row-scroller" step={scrollStep}>
           {(artists.items || []).map((a, i) => {
             const href = a._id
               ? `/artist/${a._id}`
@@ -240,11 +242,7 @@ export default function Home() {
               <Link
                 key={a._id || a.id || i}
                 to={href}
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  display: "block",
-                }}
+                style={{ textDecoration: "none", color: "inherit" }}
               >
                 <CircleTile
                   title={a.name || a.title || "Nghệ sĩ"}
@@ -253,14 +251,16 @@ export default function Home() {
               </Link>
             );
           })}
-        </Grid>
+        </HorizontalScroller>
       </Section>
 
       {/* Albums */}
       <Section title={albums.title || "Album & Đĩa đơn nổi tiếng"}>
         {loading && <p>Đang tải…</p>}
         {!loading && albums.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
-        <Grid min={180}>
+
+        {/* 2 hàng + cuộn ngang với thẻ Album (vuông) */}
+        <HorizontalScroller className="row-scroller" step={scrollStep}>
           {(albums.items || []).map((al, i) => (
             <Link
               key={al._id || al.id || i}
@@ -269,11 +269,7 @@ export default function Home() {
                   ? `/album/${al._id}`
                   : `/album/${encodeURIComponent(al.title || al.name || "")}`
               }
-              style={{
-                textDecoration: "none",
-                color: "inherit",
-                display: "block",
-              }}
+              style={{ textDecoration: "none", color: "inherit" }}
             >
               <Tile
                 title={al.title || al.name || "Album"}
@@ -282,14 +278,14 @@ export default function Home() {
               />
             </Link>
           ))}
-        </Grid>
+        </HorizontalScroller>
       </Section>
 
-      {/* Radios */}
+      {/* Radios (giữ dạng lưới cũ hoặc bạn có thể chuyển qua scroller tương tự nếu muốn) */}
       <Section title={radios.title || "Radio phổ biến"}>
         {loading && <p>Đang tải…</p>}
         {!loading && radios.items?.length === 0 && <p>(Chưa có dữ liệu)</p>}
-        <Grid min={180}>
+        <Grid min={200} gap={18}>
           {(radios.items || []).map((r, i) => (
             <Tile
               key={r._id || r.id || i}

@@ -289,3 +289,706 @@ body {
   border-color: var(--link);
   color: var(--link);
 }
+
+/* ---- Layout breathing space ---- */
+:root {
+  --page-x: clamp(16px, 4vw, 40px);
+}
+main,
+.page,
+.content,
+.home-container {
+  padding-left: var(--page-x);
+  padding-right: var(--page-x);
+}
+section {
+  margin-block: 36px;
+}
+
+/* ---- Softer notice bar (thay màu vàng chanh) ---- */
+.notice-soft {
+  background: #fff8e1;
+  border: 1px solid #f3e4b3;
+  color: #8a6d1f;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.text-warn {
+  color: #c05621;
+}
+
+/* ---- Home tiles (Album/Radio/Artist) ---- */
+.tile {
+  border-radius: 14px;
+  padding: 12px;
+  transition: transform 0.12s ease;
+}
+.tile:hover {
+  transform: translateY(-2px);
+}
+.tile .tile-cover {
+  width: 100%;
+  aspect-ratio: 1/1;
+  border-radius: 12px;
+  background: #ddd;
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 10px;
+}
+.tile.circle {
+  justify-items: center;
+}
+.tile .tile-cover.circle {
+  border-radius: 999px;
+}
+
+/* ---- Compact Song card (ẩn action, hover mới lộ) ---- */
+.song-card {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+.song-card .cover-wrap {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.song-card .cover-wrap img,
+.song-card .cover-wrap .cover-fallback {
+  width: 100%;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+  background: #ddd;
+}
+/* Play tròn giữa ảnh */
+.song-card .play-overlay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+  font-weight: 800;
+  font-size: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+/* nút ⋯ */
+.song-card .kebab {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-weight: 700;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.song-card .cover-wrap:hover .play-overlay,
+.song-card .cover-wrap:hover .kebab {
+  display: grid;
+}
+
+/* menu thả */
+.song-card .menu {
+  position: absolute;
+  right: 8px;
+  top: 40px;
+  z-index: 5;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+.song-card .menu button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.song-card .menu button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] .song-card .menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.song-card .meta .title {
+  font-weight: 700;
+}
+.song-card .meta .artist {
+  opacity: 0.7;
+  font-size: 13px;
+}
+.song-card .meta .plays {
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+/* ---- Pill primary (Phát tất cả) ---- */
+.pill-strong {
+  height: 34px;
+  border: 0;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  background: var(--accent, #22c55e);
+  color: #000;
+  cursor: pointer;
+}
+
+/* ---- Header manage dropdown ---- */
+.header-manage {
+  position: relative;
+}
+.header-manage .menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  min-width: 220px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  display: none;
+}
+.header-manage[open] .menu {
+  display: block;
+}
+.header-nav a {
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.header-nav a.active {
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+/* === THEME & HOVER OVERRIDES (dán ở cuối file CSS hiện tại) === */
+
+/* 1) Màu nền/chữ/viền theo palette mới (1-mode, giống playground) */
+:root {
+  --bg: #0b0f14;
+  --text: #e5e7eb;
+  --muted: #9aa4b2;
+  --border: #1f2a37;
+  --card: #0f141b;
+  --link: #66b2ff;
+  --accent: #7c3aed; /* đổi màu thương hiệu ở đây nếu muốn */
+  --accent-soft: color-mix(in srgb, var(--accent) 24%, transparent);
+  --overlay: rgba(0, 0, 0, 0.55);
+
+  /* Player */
+  --player-h: 64px;
+  --player-bg: #0b0f14; /* đậm hơn card một chút để tạo chiều sâu */
+  --player-border: #1f2833;
+  --player-shadow: 0 -12px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* 2) Card/Tile hover giống bản mới */
+.card {
+  /* gradient nhẹ để card “nổi” hơn */
+  background: linear-gradient(180deg, var(--card), #121923);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent);
+}
+
+/* 3) Tile cover (Album/Radio/Artist tròn) – nền & viền tối */
+.tile .tile-cover {
+  background: #0f1822;
+  border: 1px solid var(--border);
+}
+
+/* 4) SongItem (compact) – nền ảnh, menu hover, nút nổi */
+.song-card .cover-wrap img,
+.song-card .cover-wrap .cover-fallback {
+  background: #0e1620;
+  border: 1px solid var(--border);
+}
+/* Play overlay & kebab đã hiện khi hover nhờ rule cũ của bạn */
+.song-card .menu {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+.song-card .menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 5) Nút kêu gọi hành động chính (Phát tất cả) */
+.pill-strong {
+  background: var(--accent);
+  color: #0b0f14; /* chữ đậm trên nền accent để tương phản tốt */
+  border: 0;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+/* 6) Icon nhỏ (ví dụ trong header) – hover kiểu tối */
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 7) Nếu vẫn đang set data-theme="dark"/block dark mode ở trên:
+      KHÔNG cần xoá ngay, block này đã override. Sau rảnh bạn có thể
+      xoá các selector :root[data-theme="dark"] để gọn file. */
+/* Circle artist: cố định đường kính + canh giữa */
+.tile.circle .tile-cover {
+  width: 120px; /* bạn có thể đổi 96/120/140 tuỳ layout */
+  height: 120px;
+  margin: 0 auto 10px; /* canh giữa trong thẻ tile */
+  background-position: center;
+  background-size: cover; /* giữ cover */
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+/* Album tile: luôn vuông với kích thước ổn định */
+.tile:not(.circle) .tile-cover {
+  width: 180px; /* hoặc để 100% nhưng kèm max-width để tránh phình */
+  height: 180px;
+  margin: 0 auto 10px;
+  background-position: center;
+  background-size: cover;
+  border-radius: 12px;
+  flex: 0 0 auto;
+}
+
+/* Giữ lưới gọn: các tile có chiều ngang tự do nhưng cover không co méo */
+.card.tile {
+  display: grid;
+  justify-items: center;
+}
+/* ===== Sidebar container ===== */
+.sidebar {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px; /* bo lớn như ảnh */
+  padding: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08); /* chiều sâu nhẹ */
+}
+
+/* logo/brand (gradient chữ như demo) */
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  margin: 6px 4px 12px;
+  background: linear-gradient(90deg, var(--accent), #22d3ee);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* ===== Nav list ===== */
+.side-nav {
+  display: grid;
+  gap: 10px;
+}
+
+/* item có thể là <a>, <Link>, hoặc <button> */
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px; /* pill vuông bo lớn */
+  background: #121923; /* tối hơn card một chút */
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.08s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.side-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+/* trạng thái active (màu tím + viền nổi) */
+.side-item.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent) inset,
+    0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* icon (nếu có) canh đẹp */
+.side-item .ico {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  opacity: 0.9;
+}
+
+/* ===== App layout với sidebar bên trái ===== */
+.app-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-w, 260px) 1fr; /* cột trái = sidebar */
+  gap: 16px;
+}
+
+/* ===== Resizable Sidebar ===== */
+.rsb {
+  position: relative;
+  width: var(--sidebar-w, 260px);
+}
+.rsb-inner {
+  position: sticky;
+  top: 16px; /* cố định khi scroll */
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  height: calc(100vh - 32px); /* nhìn như “khung” cao full */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Brand */
+.rsb-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 800;
+  font-size: 18px;
+}
+.rsb-brand-text {
+  background: linear-gradient(90deg, var(--accent), #22d3ee);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Nav */
+.side-nav {
+  display: grid;
+  gap: 10px;
+}
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #121923;
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.08s, border-color 0.2s, background 0.2s,
+    box-shadow 0.2s;
+}
+.side-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.side-item.is-active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent) inset,
+    0 10px 24px rgba(0, 0, 0, 0.2);
+}
+.side-item .ico {
+  width: 18px;
+  display: grid;
+  place-items: center;
+  opacity: 0.95;
+}
+.side-item .txt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.side-section {
+  margin: 12px 2px 2px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+
+/* drag handle ở mép phải */
+.rsb-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  border-radius: 4px;
+  background: transparent;
+}
+.rsb-handle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.rsb-handle.dragging {
+  background: rgba(102, 178, 255, 0.18);
+}
+
+/* Thu gọn: khi width nhỏ (<= 80px) thì ẩn text giữ icon */
+:root {
+  --rsb-collapse-threshold: 88px;
+}
+.rsb[style*="--sidebar-w: 7"], /* nhanh gọn cho các width nhỏ kiểu 72px */
+.rsb[style*="--sidebar-w: 8"] {
+  /* no-op, chỉ để selector rộng */
+}
+.rsb {
+  /* khi nhỏ hơn ngưỡng, ẩn chữ */
+}
+@media (max-width: 900px) {
+  /* Tuỳ bạn: có thể ẩn hẳn sidebar ở mobile và dùng menu khác */
+}
+
+/* Nội dung chính để bên phải */
+.app-main {
+  min-width: 0; /* tránh trôi layout */
+}
+
+/* ==== Hover tím cho thẻ nhạc ở Home ==== */
+
+/* SongItem (compact) */
+.song-card {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.song-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Tile chung (Album/Artist/Radio) */
+.card.tile {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card.tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Cover bên trong tile cũng đổi viền để thấy rõ hơn */
+.tile .tile-cover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card.tile:hover .tile-cover,
+.tile:hover .tile-cover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) inset;
+}
+
+/* Nếu muốn áp dụng cho MỌI .card trong trang */
+.card:hover {
+  border-color: var(--accent);
+}
+/* ===== Header brand (logo + chữ) ===== */
+.header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  margin-right: 4px;
+}
+.header-brand__title {
+  font-weight: 800;
+  font-size: 18px;
+  /* hiệu ứng gradient giống sidebar */
+  background: linear-gradient(90deg, var(--accent), #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* === Băng thẻ 2 hàng, số cột tự co giãn theo chiều rộng === */
+.row-scroller {
+  --gap: 18px;
+
+  display: grid;
+  grid-auto-flow: column; /* đổ theo cột để cuộn ngang */
+  grid-template-rows: repeat(2, auto); /* luôn 2 hàng */
+  gap: var(--gap);
+
+  /* Mỗi “cột/thẻ” có bề rộng linh hoạt:
+     - nhỏ nhất 180px
+     - theo viewport ~22vw (tự giãn)
+     - tối đa 240px
+     => Không cố định đúng 6 thẻ */
+  grid-auto-columns: clamp(180px, 22vw, 240px);
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity; /* cuộn mượt */
+}
+.row-scroller > * {
+  scroll-snap-align: start;
+}
+
+/* KHÔNG khóa width thẻ nữa (để cột tự co giãn theo clamp trên) */
+.row-scroller .song-card {
+  width: auto;
+}
+
+/* Ảnh vuông gọn gàng theo bề rộng cột */
+.row-scroller .song-card .cover-wrap {
+  /* bỏ height cố định */
+  aspect-ratio: 1 / 1;
+}
+.row-scroller .song-card .cover-wrap img,
+.row-scroller .song-card .cover-wrap .cover-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Hover tím & đổ bóng nhẹ (giữ trải nghiệm) */
+.row-scroller .song-card {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.row-scroller .song-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* (tuỳ chọn) scrollbar mảnh */
+.row-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+.row-scroller::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  border-radius: 999px;
+}
+.row-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Khung bọc scroller + nút bấm */
+.scroller-wrap {
+  position: relative;
+}
+
+/* Nút cuộn trái/phải */
+.scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  transition: opacity 0.2s ease, transform 0.08s ease, border-color 0.2s ease;
+}
+.scroll-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-50%) scale(1.04);
+}
+.scroll-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.scroll-btn.left {
+  left: -6px;
+}
+.scroll-btn.right {
+  right: -6px;
+}
+
+/* Fade hai mép cho cảm giác có thể cuộn */
+.edge-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  z-index: 4;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.edge-fade.left {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), transparent);
+}
+.edge-fade.right {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg), transparent);
+}
+.edge-fade.hide {
+  opacity: 0;
+}
+
+/* Giữ layout 2 hàng, cuộn ngang (đã có ở bạn, nhắc lại để đủ context) */
+.row-scroller {
+  --gap: 18px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto); /* luôn 2 hàng */
+  gap: var(--gap);
+  grid-auto-columns: clamp(180px, 22vw, 240px); /* co giãn, không khóa số cột */
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 4px 8px; /* chừa chỗ cho fade/nút */
+  scroll-snap-type: x proximity;
+}
+.row-scroller > * {
+  scroll-snap-align: start;
+}
+
+/* Card trong băng cuộn không khóa width cố định */
+.row-scroller .song-card {
+  width: auto;
+}
+
+/* Ảnh vuông */
+.row-scroller .song-card .cover-wrap {
+  aspect-ratio: 1 / 1;
+}
+.row-scroller .song-card .cover-wrap img,
+.row-scroller .song-card .cover-wrap .cover-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

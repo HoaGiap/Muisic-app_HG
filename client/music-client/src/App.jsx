@@ -3,7 +3,7 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  NavLink,
+  Link,
   useNavigate,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
@@ -19,9 +19,12 @@ import PlaylistDetail from "./pages/PlaylistDetail.jsx";
 import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
-import Admin from "./pages/Admin.jsx"; // ✅ thêm
+
+import Admin from "./pages/Admin.jsx";
 import AdminAlbum from "./pages/AdminAlbum.jsx";
 import AdminSong from "./pages/AdminSong.jsx";
+import AdminArtist from "./pages/AdminArtist.jsx";
+
 import QueuePanel from "./components/QueuePanel.jsx";
 import Player from "./components/Player.jsx";
 import usePlayerPersistence from "./hooks/usePlayerPersistence.js";
@@ -32,24 +35,24 @@ import VerifyBanner from "./components/VerifyBanner.jsx";
 import ArtistDetail from "./pages/ArtistDetail.jsx";
 import AlbumDetail from "./pages/AlbumDetail.jsx";
 
-import AdminArtist from "./pages/AdminArtist.jsx";
+import ResizableSidebar from "./components/ResizableSidebar.jsx";
 
 function AppShell() {
   usePlayerPersistence();
   const navigate = useNavigate();
 
-  // Hiển thị email nhanh
+  // Current user
   const [user, setUser] = useState(null);
   useEffect(() => auth.onAuthStateChanged(setUser), []);
 
-  // Claim admin
+  // Admin claim
   const { isAdmin } = useAuthClaims();
 
-  // THEME
+  // Theme
   const prefersDark =
     typeof window !== "undefined" &&
     window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches; // ✅ .matches đúng
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   const [theme, setTheme] = useState(
     localStorage.getItem("theme") || (prefersDark ? "dark" : "light")
@@ -64,17 +67,6 @@ function AppShell() {
     navigate("/");
   };
 
-  const linkStyle = ({ isActive }) => ({
-    textDecoration: "none",
-    padding: "6px 8px",
-    borderRadius: 6,
-    fontWeight: 600,
-    color: "inherit",
-    background: isActive
-      ? "var(--btn-bg, rgba(128,128,128,.2))"
-      : "transparent",
-  });
-
   return (
     <>
       <Toaster position="top-right" toastOptions={{ duration: 2500 }} />
@@ -86,174 +78,149 @@ function AppShell() {
           minHeight: "100vh",
         }}
       >
-        <header
-          style={{
-            padding: 12,
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <NavLink to="/" style={linkStyle} end>
-            Home
-          </NavLink>
-          <NavLink to="/search" style={linkStyle}>
-            Search
-          </NavLink>
-          <NavLink to="/library" style={linkStyle}>
-            Library
-          </NavLink>
-          {/* Admin-only links */}
-          {isAdmin && (
-            <NavLink to="/upload" style={linkStyle}>
-              Upload
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/me" style={linkStyle}>
-              My Uploads
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/admin/artist" style={linkStyle}>
-              Manage Artists
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/admin/album" style={linkStyle}>
-              Manage Albums
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/admin/song" style={linkStyle}>
-              Manage Songs
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/admin" style={linkStyle}>
-              Admin
-            </NavLink>
-          )}{" "}
-          {/* ✅ mới */}
-          <span
+        {/* ===== Header ===== */}
+        <header>
+          <div
             style={{
-              marginLeft: "auto",
-              opacity: 0.9,
+              padding: "10px var(--page-x, 24px)",
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 12,
+              flexWrap: "wrap",
             }}
           >
-            {user ? (
-              <>
-                <span>{user.email}</span>
-                {isAdmin && (
-                  <span
-                    style={{
-                      padding: "2px 6px",
-                      borderRadius: 6,
-                      background: "var(--accent, #4ade80)",
-                      color: "#000",
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}
-                  >
-                    ADMIN
-                  </span>
+            <Link to="/" className="header-brand" title="Trang chủ">
+              <img
+                src="/logosite.png"
+                alt="web nghe nhạc 2.0"
+                width={22}
+                height={22}
+                style={{ borderRadius: 6 }}
+              />
+              <span className="header-brand__title">Muizq</span>
+            </Link>
+
+            <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {user ? (
+                  <>
+                    <span style={{ opacity: 0.9 }}>{user.email}</span>
+                    {isAdmin && (
+                      <span
+                        style={{
+                          padding: "2px 6px",
+                          borderRadius: 6,
+                          background: "var(--accent, #4ade80)",
+                          color: "#000",
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      >
+                        ADMIN
+                      </span>
+                    )}
+                    <button onClick={doLogout}>Logout</button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="icon-btn">
+                      Login
+                    </Link>
+                    <Link to="/register" className="icon-btn">
+                      Register
+                    </Link>
+                  </>
                 )}
-                <button onClick={doLogout}>Logout</button>
-              </>
-            ) : (
-              <>
-                <NavLink to="/login" style={linkStyle}>
-                  Login
-                </NavLink>
-                <NavLink to="/register" style={linkStyle}>
-                  Register
-                </NavLink>
-              </>
-            )}
-            <button
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            >
-              {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
-            </button>
-          </span>
+
+                <button
+                  onClick={() =>
+                    setTheme((t) => (t === "dark" ? "light" : "dark"))
+                  }
+                  className="icon-btn"
+                  title="Đổi theme"
+                >
+                  {theme === "dark" ? "🌙" : "☀️"}
+                </button>
+              </span>
+            </div>
+          </div>
         </header>
 
-        <main style={{ padding: 16 }}>
-          <VerifyBanner />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/library" element={<Library />} />
+        {/* ===== Layout: Sidebar + Content ===== */}
+        <div className="app-layout">
+          <ResizableSidebar isAdmin={isAdmin} />
 
-            {/* Auth pages */}
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/reset" element={<ResetPassword />} />
+          <main className="app-main">
+            <VerifyBanner />
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<Home />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/library" element={<Library />} />
 
-            {/* Admin-only routes */}
-            <Route
-              path="/upload"
-              element={
-                <AdminRoute>
-                  <Upload />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/me"
-              element={
-                <AdminRoute>
-                  <MyUploads />
-                </AdminRoute>
-              }
-            />
+              {/* Auth */}
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/reset" element={<ResetPassword />} />
 
-            {/* ✅ KHÔNG lồng <Routes> ở đây nữa */}
-            <Route
-              path="/admin/artist"
-              element={
-                <AdminRoute>
-                  <AdminArtist />
-                </AdminRoute>
-              }
-            />
+              {/* Admin-only (QUẢN LÝ) */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <Admin />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/upload"
+                element={
+                  <AdminRoute>
+                    <Upload />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/me"
+                element={
+                  <AdminRoute>
+                    <MyUploads />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/artist"
+                element={
+                  <AdminRoute>
+                    <AdminArtist />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/album"
+                element={
+                  <AdminRoute>
+                    <AdminAlbum />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/song"
+                element={
+                  <AdminRoute>
+                    <AdminSong />
+                  </AdminRoute>
+                }
+              />
 
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <Admin />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/album"
-              element={
-                <AdminRoute>
-                  <AdminAlbum />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/song"
-              element={
-                <AdminRoute>
-                  <AdminSong />
-                </AdminRoute>
-              }
-            />
-
-            {/* Details */}
-            <Route path="/artist/:id" element={<ArtistDetail />} />
-            <Route path="/album/:id" element={<AlbumDetail />} />
-            <Route path="/song/:id" element={<SongDetail />} />
-            <Route path="/playlist/:id" element={<PlaylistDetail />} />
-          </Routes>
-        </main>
+              {/* Details */}
+              <Route path="/artist/:id" element={<ArtistDetail />} />
+              <Route path="/album/:id" element={<AlbumDetail />} />
+              <Route path="/song/:id" element={<SongDetail />} />
+              <Route path="/playlist/:id" element={<PlaylistDetail />} />
+            </Routes>
+          </main>
+        </div>
 
         <QueuePanel />
         <Player />
