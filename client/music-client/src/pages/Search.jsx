@@ -1,75 +1,94 @@
 // client/src/pages/Search.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom"; // ⬅️ thêm
+import { Link, useSearchParams } from "react-router-dom";
 import { searchSongs, searchArtists, searchAlbums } from "../api";
 import SongItem from "../components/SongItem.jsx";
 
-function ArtistCard({ artist }) {
-  return (
-    <div
+/* ======= Small UI helpers (reuse Home styles) ======= */
+const Section = ({ title, count, children }) => (
+  <section style={{ margin: "28px 0" }}>
+    <h3
       style={{
+        margin: "0 0 12px",
         display: "flex",
-        gap: 10,
         alignItems: "center",
-        border: "1px solid #e5e7eb",
-        borderRadius: 10,
-        padding: 10,
-        background: "#fff",
+        gap: 8,
       }}
     >
-      <img
-        src={artist.avatarUrl || "/logosite.png"}
-        alt=""
-        width={48}
-        height={48}
-        style={{ borderRadius: 8, objectFit: "cover" }}
-      />
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ fontWeight: 700 }}>{artist.name}</div>
-        <small style={{ opacity: 0.7 }}>
-          {(artist.followerCount ?? 0).toLocaleString()} theo dõi
-        </small>
+      <span style={{ fontSize: 20, fontWeight: 800 }}>{title}</span>
+      {Number.isFinite(count) ? (
+        <small style={{ opacity: 0.6 }}>({count})</small>
+      ) : null}
+    </h3>
+    {children}
+  </section>
+);
+
+/** Nghệ sĩ (tile tròn, click qua chi tiết) */
+function ArtistTile({ artist }) {
+  const href = artist?._id
+    ? `/artist/${artist._id}`
+    : `/artist/${encodeURIComponent(artist?.name || "")}`;
+
+  return (
+    <Link
+      to={href}
+      style={{ textDecoration: "none", color: "inherit" }}
+      title={artist?.name}
+    >
+      <div className="card tile circle">
+        <div
+          className="tile-cover circle"
+          style={{
+            backgroundImage: `url(${artist?.avatarUrl || "/logosite.png"})`,
+          }}
+        />
+        <div style={{ fontWeight: 700, textAlign: "center" }}>
+          {artist?.name}
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
-function AlbumCard({ album }) {
+/** Album (tile vuông, click qua chi tiết) */
+function AlbumTile({ album }) {
+  const href = album?._id
+    ? `/album/${album._id}`
+    : `/album/${encodeURIComponent(album?.title || "")}`;
+
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        border: "1px solid #e5e7eb",
-        borderRadius: 10,
-        padding: 10,
-        background: "#fff",
-      }}
+    <Link
+      to={href}
+      style={{ textDecoration: "none", color: "inherit" }}
+      title={album?.title}
     >
-      <img
-        src={album.coverUrl || "/logosite.png"}
-        alt=""
-        width={48}
-        height={48}
-        style={{ borderRadius: 8, objectFit: "cover" }}
-      />
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ fontWeight: 700 }}>{album.title}</div>
-        <small style={{ opacity: 0.7 }}>
-          {album.artist || album.artistName || ""}{" "}
-          {album.releaseDate
-            ? `• ${new Date(album.releaseDate).getFullYear()}`
-            : ""}
-        </small>
+      <div className="card tile">
+        <div
+          className="tile-cover"
+          style={{
+            backgroundImage: `url(${album?.coverUrl || "/logosite.png"})`,
+          }}
+        />
+        <div style={{ display: "grid", gap: 4 }}>
+          <div style={{ fontWeight: 700, lineHeight: 1.25 }}>
+            {album?.title}
+          </div>
+          <div style={{ opacity: 0.7, fontSize: 13 }}>
+            {album?.artistName || album?.artist || ""}
+            {album?.releaseDate
+              ? ` • ${new Date(album.releaseDate).getFullYear()}`
+              : ""}
+          </div>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
 export default function Search() {
-  const [searchParams, setSearchParams] = useSearchParams(); // ⬅️ thêm
-  const initialQ = useMemo(() => searchParams.get("q") || "", [searchParams]); // ⬅️ thêm
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = useMemo(() => searchParams.get("q") || "", [searchParams]);
 
   const [q, setQ] = useState(initialQ);
   const [loading, setLoading] = useState(false);
@@ -78,16 +97,15 @@ export default function Search() {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
 
-  // đồng bộ khi URL ?q= thay đổi (đi từ Home sang)
-  useEffect(() => {
-    setQ(initialQ);
-  }, [initialQ]);
+  // Đồng bộ khi điều hướng có ?q=
+  useEffect(() => setQ(initialQ), [initialQ]);
 
-  // Debounce & fetch 3 nguồn dữ liệu
+  // Debounce tìm kiếm
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
-      if (!q.trim()) {
+      const s = q.trim();
+      if (!s) {
         setSongs([]);
         setArtists([]);
         setAlbums([]);
@@ -96,14 +114,14 @@ export default function Search() {
       setLoading(true);
       try {
         const [sRs, aRs, alRs] = await Promise.all([
-          searchSongs({ q, limit: 30 }),
-          searchArtists(q, 12),
-          searchAlbums(q, 18),
+          searchSongs({ q: s, limit: 30 }),
+          searchArtists(s, 24),
+          searchAlbums(s, 24),
         ]);
         if (!cancelled) {
-          setSongs(sRs || []);
-          setArtists(aRs || []);
-          setAlbums(alRs || []);
+          setSongs(Array.isArray(sRs) ? sRs : []);
+          setArtists(Array.isArray(aRs) ? aRs : []);
+          setAlbums(Array.isArray(alRs) ? alRs : []);
         }
       } finally {
         !cancelled && setLoading(false);
@@ -115,89 +133,90 @@ export default function Search() {
     };
   }, [q]);
 
-  const nothing = useMemo(
-    () => q && !loading && songs.length + artists.length + albums.length === 0,
-    [q, loading, songs.length, artists.length, albums.length]
-  );
+  const nothing =
+    q.trim() && !loading && songs.length + artists.length + albums.length === 0;
 
-  // Tuỳ chọn: nhấn Enter để cập nhật lại URL (?q=…) cho đồng nhất
   const commitToUrl = () => {
     const s = q.trim();
     setSearchParams(s ? { q: s } : {});
   };
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <h2>Tìm kiếm</h2>
+    <div style={{ padding: "16px 0" }}>
+      <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 800 }}>
+        Tìm kiếm
+      </h2>
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && commitToUrl()} // ⬅️ giữ UI, thêm Enter sync URL
-        placeholder="Nhập tên bài hát, nghệ sĩ hoặc album…"
+      <div
         style={{
-          padding: 8,
-          width: "100%",
-          maxWidth: 520,
-          borderRadius: 8,
-          border: "1px solid #ddd",
+          display: "flex",
+          gap: 8,
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 10,
+          maxWidth: 640,
+          marginBottom: 24,
         }}
-      />
+      >
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && commitToUrl()}
+          placeholder="Nhập tên bài hát, nghệ sĩ hoặc album…"
+          aria-label="Tìm kiếm"
+          style={{ flex: 1, borderRadius: 10 }}
+        />
+        <button className="icon-only" onClick={commitToUrl} title="Tìm">
+          🔎
+        </button>
+      </div>
 
       {loading && <p>Đang tìm…</p>}
       {nothing && <p>Không tìm thấy kết quả.</p>}
 
       {/* Nghệ sĩ */}
       {artists.length > 0 && (
-        <section>
-          <h3 style={{ margin: "4px 0 10px" }}>
-            Nghệ sĩ <small style={{ opacity: 0.6 }}>({artists.length})</small>
-          </h3>
+        <Section title="Nghệ sĩ" count={artists.length}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-              gap: 12,
+              gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+              gap: 18,
             }}
           >
             {artists.map((a) => (
-              <ArtistCard key={a._id} artist={a} />
+              <ArtistTile key={a._id || a.id} artist={a} />
             ))}
           </div>
-        </section>
+        </Section>
       )}
 
       {/* Album */}
       {albums.length > 0 && (
-        <section>
-          <h3 style={{ margin: "14px 0 10px" }}>
-            Album <small style={{ opacity: 0.6 }}>({albums.length})</small>
-          </h3>
+        <Section title="Album" count={albums.length}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-              gap: 12,
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: 18,
             }}
           >
             {albums.map((al) => (
-              <AlbumCard key={al._id} album={al} />
+              <AlbumTile key={al._id || al.id} album={al} />
             ))}
           </div>
-        </section>
+        </Section>
       )}
 
       {/* Bài hát */}
       {songs.length > 0 && (
-        <section>
-          <h3 style={{ margin: "14px 0 10px" }}>
-            Bài hát <small style={{ opacity: 0.6 }}>({songs.length})</small>
-          </h3>
+        <Section title="Bài hát" count={songs.length}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-              gap: 12,
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 18,
             }}
           >
             {songs.map((s, i) => (
@@ -206,10 +225,11 @@ export default function Search() {
                 song={s}
                 list={songs}
                 index={i}
+                compact
               />
             ))}
           </div>
-        </section>
+        </Section>
       )}
     </div>
   );

@@ -493,11 +493,12 @@ export default function Library() {
               </div>
             </div>
 
+            {/* ==== SONG GRID (compact như Home) ==== */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-                gap: 12,
+                gap: 18,
               }}
             >
               {(selected.songs || []).map((s, i) => (
@@ -508,6 +509,7 @@ export default function Library() {
                   index={i}
                   playlistId={selected._id}
                   onChanged={() => removeFromPlaylist(s._id || s.id)}
+                  compact
                 />
               ))}
             </div>

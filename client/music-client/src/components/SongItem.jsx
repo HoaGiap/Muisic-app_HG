@@ -133,9 +133,9 @@ export default function SongItem({
           <div className="artist" title={song.artist}>
             {song.artist}
           </div>
-          {Number.isFinite(+song.plays) && (
+          {/* {Number.isFinite(+song.plays) && (
             <div className="plays">{song.plays} lượt nghe</div>
-          )}
+          )} */}
         </div>
 
         {/* Popups */}
@@ -177,11 +177,11 @@ export default function SongItem({
       )}
       <div style={{ marginTop: 8, fontWeight: 700 }}>{song.title}</div>
       <div style={{ opacity: 0.7 }}>{song.artist}</div>
-      {Number.isFinite(+song.plays) && (
+      {/* {Number.isFinite(+song.plays) && (
         <div style={{ opacity: 0.6, fontSize: 12, marginTop: 4 }}>
           {song.plays} lượt nghe
         </div>
-      )}
+      )} */}
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <button onClick={playNow}>▶ Phát</button>
         <button onClick={addToQueue}>＋ Queue</button>
