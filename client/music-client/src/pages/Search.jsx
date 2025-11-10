@@ -4,6 +4,29 @@ import { Link, useSearchParams } from "react-router-dom";
 import { searchSongs, searchArtists, searchAlbums } from "../api";
 import SongItem from "../components/SongItem.jsx";
 
+/* ===== Icon nét mảnh giống Home ===== */
+const Ico = ({ children, size = 18 }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {children}
+  </svg>
+);
+const IconSearch = () => (
+  <Ico>
+    <circle cx="11" cy="11" r="6" />
+    <path d="M20 20l-3.5-3.5" />
+  </Ico>
+);
+
 /* ======= Small UI helpers (reuse Home styles) ======= */
 const Section = ({ title, count, children }) => (
   <section style={{ margin: "28px 0" }}>
@@ -167,8 +190,13 @@ export default function Search() {
           aria-label="Tìm kiếm"
           style={{ flex: 1, borderRadius: 10 }}
         />
-        <button className="icon-only" onClick={commitToUrl} title="Tìm">
-          🔎
+        <button
+          className="icon-only"
+          onClick={commitToUrl}
+          title="Tìm kiếm"
+          aria-label="Tìm kiếm"
+        >
+          <IconSearch />
         </button>
       </div>
 

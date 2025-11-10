@@ -390,6 +390,7 @@ export default function Library() {
         gridTemplateColumns: "300px 1fr",
         gap: 16,
         alignItems: "start",
+        paddingTop: 24,
       }}
     >
       {/* Sidebar */}

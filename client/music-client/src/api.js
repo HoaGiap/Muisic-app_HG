@@ -45,9 +45,16 @@ export async function unfollowArtist(idOrName) {
   const { data } = await api.post(`/artists/${idOrName}/unfollow`);
   return data;
 }
+// src/api/index.js (hoặc nơi bạn export api)
+// src/api/index.js (hoặc nơi bạn export api)
 export async function getMyFollowingArtists() {
-  const { data } = await api.get(`/me/following/artists`);
-  return data.artistIds; // string[]
+  try {
+    const { data } = await api.get(`/me/following/artists`);
+    return data.artistIds || [];
+  } catch (e) {
+    if (e?.response?.status === 401) return []; // chưa đăng nhập
+    throw e;
+  }
 }
 
 // Albums admin
@@ -168,3 +175,4 @@ export async function removeSongFromAlbum(songId) {
   const { data } = await api.patch(`/songs/${songId}`, { albumId: null });
   return data.song;
 }
+// src/api/index.js
