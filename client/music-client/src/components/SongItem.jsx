@@ -7,7 +7,8 @@ import {
 } from "./playerState";
 import { api } from "../api";
 import toast from "react-hot-toast";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import PlaylistPicker from "./PlaylistPicker";
 import LyricsModal from "./LyricsModal";
 import LyricsEditor from "./LyricsEditor";
@@ -31,7 +32,9 @@ export default function SongItem({
   const [openLyricsEditor, setOpenLyricsEditor] = useState(false);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuCoords, setMenuCoords] = useState({ left: 0, top: 0 });
   const menuRef = useRef(null);
+  const menuPositioned = useRef(false);
 
   useEffect(() => {
     const close = (e) => {
@@ -41,6 +44,64 @@ export default function SongItem({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
+  const toggleMenu = (evt) => {
+    evt.stopPropagation();
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    menuPositioned.current = false;
+    const rect = evt.currentTarget.getBoundingClientRect();
+    const pad = 12;
+    const left = Math.min(
+      Math.max(pad, rect.left),
+      window.innerWidth - 220
+    );
+    const top = Math.min(
+      Math.max(pad, rect.bottom + 8),
+      window.innerHeight - 180
+    );
+    setMenuCoords({ left, top });
+    setMenuOpen(true);
+  };
+
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen || !menuRef.current || menuPositioned.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const pad = 12;
+    let left = menuCoords.left;
+    let top = menuCoords.top;
+    if (rect.right > window.innerWidth - pad) {
+      left = Math.max(pad, left - (rect.right - (window.innerWidth - pad)));
+    }
+    if (rect.left < pad) {
+      left = pad;
+    }
+    if (rect.bottom > window.innerHeight - pad) {
+      top = Math.max(pad, top - (rect.bottom - (window.innerHeight - pad)));
+    }
+    if (rect.top < pad) {
+      top = pad;
+    }
+    if (left !== menuCoords.left || top !== menuCoords.top) {
+      menuPositioned.current = true;
+      setMenuCoords({ left, top });
+    } else {
+      menuPositioned.current = true;
+    }
+  }, [menuOpen, menuCoords.left, menuCoords.top]);
 
   const playNow = () => {
     const q = Array.isArray(list) && list.length ? list : [song];
@@ -90,41 +151,74 @@ export default function SongItem({
           </button>
 
           {/* Kebab menu (hover) */}
-          <div
-            className="kebab"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen((v) => !v);
-            }}
-          >
+          <div className="kebab" onClick={toggleMenu}>
             ⋯
           </div>
+        </div>
 
-          {menuOpen && (
+        {menuOpen &&
+          createPortal(
             <div
-              className="menu"
+              className="song-card-menu"
               ref={menuRef}
+              style={{ left: menuCoords.left, top: menuCoords.top }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button onClick={addToQueue}>＋ Thêm vào queue</button>
-              <button onClick={() => setOpenPicker(true)}>
+              <button
+                onClick={() => {
+                  addToQueue();
+                  setMenuOpen(false);
+                }}
+              >
+                ＋ Thêm vào queue
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpenPicker(true);
+                }}
+              >
                 ＋ Thêm vào playlist…
               </button>
-              <button onClick={() => setOpenLyrics(true)}>🎼 Xem lời</button>
-              <button onClick={() => setOpenLyricsEditor(true)}>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpenLyrics(true);
+                }}
+              >
+                🎼 Xem lời
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpenLyricsEditor(true);
+                }}
+              >
                 📝 Sửa lời…
               </button>
               {onDelete && (
-                <button onClick={() => onDelete(song._id || song.id)}>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(song._id || song.id);
+                  }}
+                >
                   🗑️ Xoá
                 </button>
               )}
               {!onDelete && playlistId ? (
-                <button onClick={removeFromPlaylist}>− Gỡ khỏi playlist</button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    removeFromPlaylist();
+                  }}
+                >
+                  − Gỡ khỏi playlist
+                </button>
               ) : null}
-            </div>
+            </div>,
+            document.body
           )}
-        </div>
 
         <div className="meta">
           <div className="title" title={song.title}>
@@ -159,7 +253,6 @@ export default function SongItem({
       </div>
     );
   }
-
   // === phiên bản cũ (nếu cần dùng nơi khác) ===
   return (
     <div className="card" style={{ borderRadius: 12, padding: 12 }}>

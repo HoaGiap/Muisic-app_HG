@@ -165,8 +165,8 @@ function CreatePlaylistModal({ open, onClose, onCreated, sampleCovers = [] }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(520px,95vw)",
-          background: "var(--bg,#fff)",
-          color: "var(--fg,#111)",
+          background: "var(--card,#0f141b)",
+          color: "var(--text,#f1f5f9)",
           borderRadius: 12,
           padding: 16,
           boxShadow: "0 10px 30px rgba(0,0,0,.25)",
@@ -188,10 +188,12 @@ function CreatePlaylistModal({ open, onClose, onCreated, sampleCovers = [] }) {
               placeholder="Tên…"
               style={{
                 display: "block",
-                width: "100%",
+                width: "96%",
                 padding: 8,
                 borderRadius: 8,
-                border: "1px solid #ddd",
+                border: "1px solid var(--border,#243043)",
+                background: "var(--bg,#070b10)",
+                color: "var(--text,#f1f5f9)",
                 marginTop: 6,
               }}
             />
@@ -203,7 +205,11 @@ function CreatePlaylistModal({ open, onClose, onCreated, sampleCovers = [] }) {
               type="file"
               accept="image/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              style={{ display: "block", marginTop: 6 }}
+              style={{
+                display: "block",
+                marginTop: 6,
+                color: "var(--text,#f1f5f9)",
+              }}
             />
           </label>
 
@@ -220,8 +226,8 @@ function CreatePlaylistModal({ open, onClose, onCreated, sampleCovers = [] }) {
               disabled={saving}
               style={{
                 background: "transparent",
-                color: "var(--fg,#111)",
-                border: "1px solid #d0d0d0",
+                color: "var(--text,#f1f5f9)",
+                border: "1px solid var(--border,#243043)",
                 borderRadius: 999,
                 padding: "8px 16px",
                 cursor: "pointer",
@@ -264,6 +270,7 @@ export default function Library() {
   const [loading, setLoading] = useState(true);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [sidebarRefresh, setSidebarRefresh] = useState(0);
 
   const selId = selected?._id;
   const songs = selected?.songs || [];
@@ -379,8 +386,6 @@ export default function Library() {
     }
   };
 
-  const sidebarList = useMemo(() => all || [], [all]);
-
   if (loading) return <p>Đang tải…</p>;
 
   return (
@@ -397,25 +402,17 @@ export default function Library() {
       <PlaylistSidebar
         selectedId={selected?._id}
         onSelect={handleSelect}
-        onCreated={(p) => {
-          setSelected(p);
-          loadAll();
-        }}
         onDeleted={() => {
           loadAll();
-          if (selected && !sidebarList.find((x) => x._id === selected._id)) {
-            setSelected(null);
-          }
+          setSidebarRefresh((k) => k + 1);
         }}
+        onCreateClick={() => setShowCreate(true)}
+        refreshKey={sidebarRefresh}
         width={300}
       />
 
       {/* Content */}
       <div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button onClick={() => setShowCreate(true)}>Tạo playlist</button>
-        </div>
-
         {selected ? (
           <>
             <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import toast from "react-hot-toast";
 
@@ -66,7 +67,7 @@ export default function PlaylistPicker({ open, onClose, songId, onDone }) {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div style={backdrop} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <h3>Chọn playlist</h3>
@@ -83,6 +84,7 @@ export default function PlaylistPicker({ open, onClose, songId, onDone }) {
                 alignItems: "center",
                 gap: 8,
                 padding: "6px 0",
+                color: "var(--text, #f8fafc)"
               }}
             >
               <input
@@ -103,7 +105,14 @@ export default function PlaylistPicker({ open, onClose, songId, onDone }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Tạo playlist mới (tuỳ chọn)"
-            style={{ flex: 1 }}
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              borderRadius: 10,
+              color: "var(--text, #f8fafc)",
+              padding: "8px 10px",
+            }}
           />
         </div>
 
@@ -121,7 +130,8 @@ export default function PlaylistPicker({ open, onClose, songId, onDone }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -138,9 +148,9 @@ const backdrop = {
 const modal = {
   width: 420,
   maxWidth: "92vw",
-  background: "var(--bg, #fff)",
-  color: "var(--fg, #111)",
+  background: "var(--card, #111)",
+  color: "var(--text, #f8fafc)",
   padding: 16,
   borderRadius: 12,
-  boxShadow: "0 8px 24px rgba(0,0,0,.2)",
+  boxShadow: "0 8px 24px rgba(0,0,0,.35)",
 };

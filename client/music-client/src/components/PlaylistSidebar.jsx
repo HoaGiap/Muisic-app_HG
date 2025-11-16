@@ -6,15 +6,13 @@ import toast from "react-hot-toast";
 export default function PlaylistSidebar({
   selectedId,
   onSelect,
-  onCreated,
   onDeleted,
+  onCreateClick,
+  refreshKey = 0,
   width = 300,
 }) {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [openCreate, setOpenCreate] = useState(false);
-  const [name, setName] = useState("");
 
   const load = () =>
     api
@@ -25,25 +23,7 @@ export default function PlaylistSidebar({
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
-  }, []);
-
-  const create = async () => {
-    const n = name.trim();
-    if (!n) return toast.error("Nhập tên playlist");
-    try {
-      const { data } = await api.post("/playlists", { name: n });
-      toast.success("Đã tạo playlist");
-      setName("");
-      setOpenCreate(false);
-      await load();
-      onSelect && onSelect(data);
-      onCreated && onCreated(data);
-    } catch (e) {
-      if (e?.response?.status === 401) toast.error("Bạn cần đăng nhập");
-      else toast.error("Tạo playlist thất bại");
-      console.error(e);
-    }
-  };
+  }, [refreshKey]);
 
   const removeOne = async (e, p) => {
     e.stopPropagation();
@@ -68,6 +48,10 @@ export default function PlaylistSidebar({
     }
   };
 
+  const triggerCreate = () => {
+    if (onCreateClick) onCreateClick();
+  };
+
   return (
     <aside
       style={{
@@ -76,7 +60,7 @@ export default function PlaylistSidebar({
         paddingRight: 12,
       }}
     >
-      {/* Header + nút Tạo */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -85,79 +69,31 @@ export default function PlaylistSidebar({
           marginBottom: 10,
         }}
       >
-        <div style={{ fontWeight: 700 }}>Playlist của tôi</div>
+        <div>
+          <div style={{ fontWeight: 700 }}>Playlist của tôi</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Tạo playlist</div>
+        </div>
         <button
-          onClick={() => setOpenCreate((v) => !v)}
+          onClick={triggerCreate}
           title="Tạo playlist"
+          aria-label="Tạo playlist"
           style={{
             background: "var(--card)",
             color: "var(--text)",
             border: "1px solid var(--border)",
             borderRadius: 8,
-            padding: "4px 10px",
+            padding: "4px 12px",
+            fontSize: 18,
+            lineHeight: 1,
           }}
         >
-          ＋
+          +
         </button>
       </div>
 
-      {/* Ô nhập tên khi tạo */}
-      {openCreate && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-          <input
-            autoFocus
-            placeholder="Tên playlist…"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") create();
-              if (e.key === "Escape") {
-                setOpenCreate(false);
-                setName("");
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: 6,
-              background: "var(--card)",
-              color: "var(--text)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-            }}
-          />
-          <button
-            onClick={create}
-            style={{
-              background: "var(--card)",
-              color: "var(--text)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "6px 10px",
-            }}
-          >
-            Tạo
-          </button>
-          <button
-            onClick={() => {
-              setOpenCreate(false);
-              setName("");
-            }}
-            style={{
-              background: "var(--card)",
-              color: "var(--text)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "6px 10px",
-            }}
-          >
-            Huỷ
-          </button>
-        </div>
-      )}
-
       {/* Danh sách */}
       {loading ? (
-        <p>Đang tải…</p>
+        <p>Đang tải...</p>
       ) : (
         <div
           style={{
@@ -221,7 +157,6 @@ export default function PlaylistSidebar({
                 </div>
               </button>
 
-              {/* 🗑 nút xoá nhỏ */}
               <button
                 onClick={(e) => removeOne(e, p)}
                 title="Xoá playlist"
@@ -234,7 +169,7 @@ export default function PlaylistSidebar({
                   cursor: "pointer",
                 }}
               >
-                🗑
+                ✕
               </button>
             </div>
           ))}

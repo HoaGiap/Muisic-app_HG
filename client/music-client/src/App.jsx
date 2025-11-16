@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Link,
+  Outlet,
   useNavigate,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
@@ -36,7 +37,109 @@ import ArtistDetail from "./pages/ArtistDetail.jsx";
 import AlbumDetail from "./pages/AlbumDetail.jsx";
 
 import ResizableSidebar from "./components/ResizableSidebar.jsx";
+import AuthLayout from "./layouts/AuthLayout.jsx";
 
+/* ---------------- AppLayout: layout CHÍNH (có header + sidebar) ---------------- */
+function AppLayout({ user, isAdmin, theme, setTheme, doLogout }) {
+  return (
+    <>
+      <Toaster position="top-right" toastOptions={{ duration: 2500 }} />
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: "auto 1fr auto",
+          minHeight: "100vh",
+        }}
+      >
+        {/* Header */}
+        <header>
+          <div
+            style={{
+              padding: "20px var(--page-x, 24px)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <Link to="/" className="header-brand" title="Trang chủ">
+              <img
+                src="/logosite.png"
+                alt="Muizq"
+                width={42}
+                height={42}
+                style={{ borderRadius: 6 }}
+              />
+              <span className="header-brand__title">Muizq</span>
+            </Link>
+
+            <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {user ? (
+                  <>
+                    <span style={{ opacity: 0.9 }}>{user.email}</span>
+                    {isAdmin && (
+                      <span
+                        style={{
+                          padding: "2px 6px",
+                          borderRadius: 6,
+                          background: "var(--accent, #4ade80)",
+                          color: "#000",
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      >
+                        ADMIN
+                      </span>
+                    )}
+                    <button onClick={doLogout}>Logout</button>
+                  </>
+                ) : (
+                  // LƯU Ý: các route Login/Register sẽ KHÔNG dùng layout này nữa
+                  <>
+                    <Link to="/login" className="icon-btn header-auth-btn">
+                      Login
+                    </Link>
+                    <Link to="/register" className="icon-btn header-auth-btn">
+                      Register
+                    </Link>
+                  </>
+                )}
+
+                {/* <button
+                  onClick={() =>
+                    setTheme((t) => (t === "dark" ? "light" : "dark"))
+                  }
+                  className="icon-btn"
+                  title="Đổi theme"
+                >
+                  {theme === "dark" ? "🌙" : "☀️"}
+                </button> */}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Layout: Sidebar + Content */}
+        <div className="app-layout">
+          <ResizableSidebar isAdmin={isAdmin} />
+
+          <main className="app-main">
+            <VerifyBanner />
+            {/* NHÉT CÁC TRANG CON Ở ĐÂY */}
+            <Outlet />
+          </main>
+        </div>
+
+        <QueuePanel />
+        <Player />
+      </div>
+    </>
+  );
+}
+
+/* ---------------- Shell: quản lý state + định tuyến ---------------- */
 function AppShell() {
   usePlayerPersistence();
   const navigate = useNavigate();
@@ -68,164 +171,88 @@ function AppShell() {
   };
 
   return (
-    <>
-      <Toaster position="top-right" toastOptions={{ duration: 2500 }} />
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateRows: "auto 1fr auto",
-          minHeight: "100vh",
-        }}
+    <Routes>
+      {/* ====== NHÓM ROUTE DÙNG LAYOUT CHÍNH (có header + sidebar) ====== */}
+      <Route
+        element={
+          <AppLayout
+            user={user}
+            isAdmin={isAdmin}
+            theme={theme}
+            setTheme={setTheme}
+            doLogout={doLogout}
+          />
+        }
       >
-        {/* ===== Header ===== */}
-        <header>
-          <div
-            style={{
-              padding: "10px var(--page-x, 24px)",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <Link to="/" className="header-brand" title="Trang chủ">
-              <img
-                src="/logosite.png"
-                alt="web nghe nhạc 2.0"
-                width={22}
-                height={22}
-                style={{ borderRadius: 6 }}
-              />
-              <span className="header-brand__title">Muizq</span>
-            </Link>
+        {/* Public */}
+        <Route path="/" element={<Home />} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/library" element={<Library />} />
 
-            <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {user ? (
-                  <>
-                    <span style={{ opacity: 0.9 }}>{user.email}</span>
-                    {isAdmin && (
-                      <span
-                        style={{
-                          padding: "2px 6px",
-                          borderRadius: 6,
-                          background: "var(--accent, #4ade80)",
-                          color: "#000",
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      >
-                        ADMIN
-                      </span>
-                    )}
-                    <button onClick={doLogout}>Logout</button>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/login" className="icon-btn">
-                      Login
-                    </Link>
-                    <Link to="/register" className="icon-btn">
-                      Register
-                    </Link>
-                  </>
-                )}
+        {/* Admin-only */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/upload"
+          element={
+            <AdminRoute>
+              <Upload />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/me"
+          element={
+            <AdminRoute>
+              <MyUploads />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/artist"
+          element={
+            <AdminRoute>
+              <AdminArtist />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/album"
+          element={
+            <AdminRoute>
+              <AdminAlbum />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/song"
+          element={
+            <AdminRoute>
+              <AdminSong />
+            </AdminRoute>
+          }
+        />
 
-                <button
-                  onClick={() =>
-                    setTheme((t) => (t === "dark" ? "light" : "dark"))
-                  }
-                  className="icon-btn"
-                  title="Đổi theme"
-                >
-                  {theme === "dark" ? "🌙" : "☀️"}
-                </button>
-              </span>
-            </div>
-          </div>
-        </header>
+        {/* Details */}
+        <Route path="/artist/:id" element={<ArtistDetail />} />
+        <Route path="/album/:id" element={<AlbumDetail />} />
+        <Route path="/song/:id" element={<SongDetail />} />
+        <Route path="/playlist/:id" element={<PlaylistDetail />} />
+      </Route>
 
-        {/* ===== Layout: Sidebar + Content ===== */}
-        <div className="app-layout">
-          <ResizableSidebar isAdmin={isAdmin} />
-
-          <main className="app-main">
-            <VerifyBanner />
-            <Routes>
-              {/* Public */}
-              <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/library" element={<Library />} />
-
-              {/* Auth */}
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/reset" element={<ResetPassword />} />
-
-              {/* Admin-only (QUẢN LÝ) */}
-              <Route
-                path="/admin"
-                element={
-                  <AdminRoute>
-                    <Admin />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/upload"
-                element={
-                  <AdminRoute>
-                    <Upload />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/me"
-                element={
-                  <AdminRoute>
-                    <MyUploads />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/admin/artist"
-                element={
-                  <AdminRoute>
-                    <AdminArtist />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/admin/album"
-                element={
-                  <AdminRoute>
-                    <AdminAlbum />
-                  </AdminRoute>
-                }
-              />
-              <Route
-                path="/admin/song"
-                element={
-                  <AdminRoute>
-                    <AdminSong />
-                  </AdminRoute>
-                }
-              />
-
-              {/* Details */}
-              <Route path="/artist/:id" element={<ArtistDetail />} />
-              <Route path="/album/:id" element={<AlbumDetail />} />
-              <Route path="/song/:id" element={<SongDetail />} />
-              <Route path="/playlist/:id" element={<PlaylistDetail />} />
-            </Routes>
-          </main>
-        </div>
-
-        <QueuePanel />
-        <Player />
-      </div>
-    </>
+      {/* ====== NHÓM ROUTE AUTH DÙNG AuthLayout (KHÔNG header/sidebar) ====== */}
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/reset" element={<ResetPassword />} />
+      </Route>
+    </Routes>
   );
 }
 

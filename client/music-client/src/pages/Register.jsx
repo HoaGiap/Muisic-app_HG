@@ -61,7 +61,7 @@ export default function Register() {
     <div className="auth-screen">
       <div className="auth-card">
         <h1 className="auth-title">Đăng ký</h1>
-        <p className="auth-subtitle">Tạo tài khoản mới để bắt đầu 🎧</p>
+        {/* <p className="auth-subtitle">Tạo tài khoản mới để bắt đầu 🎧</p> */}
 
         <form className="auth-form" onSubmit={submit}>
           <label className="auth-label">

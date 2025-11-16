@@ -1,6 +1,6 @@
 // src/components/Player.jsx
 import { useAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   currentTrackAtom,
   playingAtom,
@@ -20,19 +20,91 @@ import LyricsPanel from "./LyricsPanel";
 import { api } from "../api";
 import useMediaSession from "../hooks/useMediaSession";
 
-import {
-  FaPlay,
-  FaPause,
-  FaBackwardStep,
-  FaForwardStep,
-  FaShuffle,
-  FaRepeat,
-  FaVolumeHigh,
-  FaVolumeXmark,
-} from "react-icons/fa6";
-
 // ghi nhớ các bài đã tính plays trong 1 phiên
 const countedSet = new Set();
+
+/* ==== Thin-stroke SVG icons (cùng phong cách icon tìm kiếm ở Home) ==== */
+function Svg({ children, size = 18 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+const IShuffle = () => (
+  <Svg>
+    <path d="M16 3h5v5M3 7h5l10 10h3M3 17h5l3-3" />
+    <path d="M21 16v5h-5" />
+  </Svg>
+);
+const IPrev = () => (
+  <Svg>
+    <path d="M6 5v14M18 6l-9 6 9 6V6z" />
+  </Svg>
+);
+const INext = () => (
+  <Svg>
+    <path d="M18 5v14M6 6l9 6-9 6V6z" />
+  </Svg>
+);
+const IRepeat = () => (
+  <Svg>
+    <path d="M17 1l3 3-3 3" />
+    <path d="M20 4H7a4 4 0 0 0-4 4v1" />
+    <path d="M7 23l-3-3 3-3" />
+    <path d="M4 20h13a4 4 0 0 0 4-4v-1" />
+  </Svg>
+);
+const IPlay = () => (
+  <Svg>
+    <path d="M8 5l11 7-11 7V5z" />
+  </Svg>
+);
+const IPause = () => (
+  <Svg>
+    <path d="M10 5v14M16 5v14" />
+  </Svg>
+);
+const IQueue = () => (
+  <Svg>
+    <path d="M3 6h18M3 12h12M3 18h8" />
+  </Svg>
+);
+const IMic = () => (
+  <Svg>
+    <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z" />
+    <path d="M19 10a7 7 0 0 1-14 0" />
+    <path d="M12 17v4" />
+  </Svg>
+);
+const IVol = () => (
+  <Svg>
+    <path d="M11 5 6 9H3v6h3l5 4V5z" />
+    <path d="M15 9a4 4 0 0 1 0 6" />
+  </Svg>
+);
+const IMute = () => (
+  <Svg>
+    <path d="M11 5 6 9H3v6h3l5 4V5z" />
+    <path d="M16 9l6 6M22 9l-6 6" />
+  </Svg>
+);
+/* nút + (add) */
+const IPlus = () => (
+  <Svg>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
 
 export default function Player() {
   const [current, setCurrent] = useAtom(currentTrackAtom);
@@ -55,6 +127,41 @@ export default function Player() {
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
   const countedThisTrackRef = useRef(false);
+
+  // ----- Playlist picker (cho nút +) -----
+  const [showPicker, setShowPicker] = useState(false);
+  const [loadingPL, setLoadingPL] = useState(false);
+  const [playlists, setPlaylists] = useState([]);
+  const addBtnRef = useRef(null);
+
+  const openPicker = async () => {
+    setShowPicker((v) => !v);
+    if (playlists.length || loadingPL) return;
+    try {
+      setLoadingPL(true);
+      const { data } = await api.get("/playlists").catch(() => ({ data: [] }));
+      const items = Array.isArray(data) ? data : data.items || [];
+      setPlaylists(items);
+    } finally {
+      setLoadingPL(false);
+    }
+  };
+
+  const addCurrentTo = async (pl) => {
+    if (!current?._id && !current?.id) return;
+    const songId = current._id || current.id;
+    try {
+      await api.post(`/playlists/add`, {
+        playlistId: pl._id || pl.id,
+        songId,
+      });
+      setShowPicker(false);
+    } catch (e) {
+      console.error(e);
+      // có thể thêm toast nếu bạn có t.ui/toast
+      alert("Không thể thêm vào playlist đã chọn.");
+    }
+  };
 
   // Khi đổi index hoặc queue -> set current, reset cờ
   useEffect(() => {
@@ -258,6 +365,31 @@ export default function Player() {
     onSeekForward: (sec) => seekBy(+Math.abs(sec || 10)),
   });
 
+  const normalize = (val, max = 1) =>
+    Math.min(Math.max(val / (max || 1), 0), 1);
+  const progressPct = duration ? normalize(progress, duration) : 0;
+  const volumePct = Number.isFinite(volume) ? normalize(volume, 1) : 0;
+
+  // v��< trA- picker (th��� n��i) tA-nh theo nA�t +
+  const pickerStyle = useMemo(() => {
+    const r = addBtnRef.current?.getBoundingClientRect();
+    if (!r) return { display: "none" };
+    return {
+      position: "fixed",
+      left: r.left,
+      top: r.top - 8,
+      transform: "translateY(-100%)",
+      zIndex: 60,
+      minWidth: 220,
+      background: "var(--card)",
+      color: "var(--text)",
+      border: "1px solid var(--border)",
+      borderRadius: 12,
+      boxShadow: "0 10px 24px rgba(0,0,0,.25)",
+      padding: 8,
+    };
+  }, [showPicker]); // re-calc khi m��Y/�`A3ng
+
   // ===== Render =====
   if (!current) {
     return (
@@ -277,15 +409,23 @@ export default function Player() {
     <>
       <div className="player-shell">
         <div className="player">
-          {/* LEFT: meta + mở Queue */}
+          {/* LEFT: meta + nút Add (+) */}
           <div className="meta">
             {current.coverUrl && <img src={current.coverUrl} alt="" />}
             <div style={{ minWidth: 0 }}>
               <div className="t">{current.title}</div>
               <div className="a">{current.artist}</div>
             </div>
-            <button className="pill" onClick={() => setOpen(true)}>
-              Queue ({queue.length})
+
+            {/* nút + (thêm vào playlist) */}
+            <button
+              ref={addBtnRef}
+              className="icon"
+              onClick={openPicker}
+              aria-label="Thêm vào playlist"
+              title="Thêm vào playlist"
+            >
+              <IPlus />
             </button>
           </div>
 
@@ -298,7 +438,7 @@ export default function Player() {
                 aria-pressed={shuffle}
                 onClick={() => setShuffle((s) => !s)}
               >
-                <FaShuffle size={18} />
+                <IShuffle />
               </button>
 
               <button
@@ -306,16 +446,16 @@ export default function Player() {
                 title="Prev"
                 onClick={() => goPrev(true)}
               >
-                <FaBackwardStep size={18} />
+                <IPrev />
               </button>
 
               <button
-                className="icon play"
+                className="icon play solid"
                 title={playing ? "Pause" : "Play"}
                 onClick={() => setPlaying((p) => !p)}
                 aria-pressed={playing}
               >
-                {playing ? <FaPause size={18} /> : <FaPlay size={18} />}
+                {playing ? <IPause /> : <IPlay />}
               </button>
 
               <button
@@ -323,7 +463,7 @@ export default function Player() {
                 title="Next"
                 onClick={() => goNext(true)}
               >
-                <FaForwardStep size={18} />
+                <INext />
               </button>
 
               <button
@@ -346,41 +486,57 @@ export default function Player() {
                   )
                 }
               >
-                <FaRepeat size={18} />
-                {repeat === "oneOnce" && (
-                  <span style={{ fontSize: 10, marginLeft: 4 }}>1x</span>
-                )}
+                <IRepeat />
               </button>
             </div>
 
             <div className="progress">
               <span>{fmt(progress)}</span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 0}
-                step="1"
-                value={progress}
-                onChange={(e) => {
-                  if (audioRef.current) {
-                    const v = Number(e.target.value);
-                    audioRef.current.currentTime = v;
-                    setProgress(v);
-                  }
-                }}
-              />
+              <div
+                className="range -progress"
+                style={{ "--pct": progressPct }}
+              >
+                <div className="range-track" />
+                <div className="range-fill" />
+                <div className="range-knob" />
+                <input
+                  className="range-input"
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  step="1"
+                  value={progress}
+                  onChange={(e) => {
+                    if (audioRef.current) {
+                      const v = Number(e.target.value);
+                      audioRef.current.currentTime = v;
+                      setProgress(v);
+                    }
+                  }}
+                />
+              </div>
               <span>{fmt(duration)}</span>
             </div>
           </div>
 
-          {/* RIGHT: Lyrics + Mute + Volume */}
+          {/* RIGHT: Lyrics + Queue + Mute + Volume */}
           <div className="right">
             <button
-              className="pill"
+              className="icon"
               onClick={() => setLyricsOpen(true)}
               title="Lời bài hát"
+              aria-label="Lời bài hát"
             >
-              🎤 Lời
+              <IMic />
+            </button>
+
+            <button
+              className="icon"
+              onClick={() => setOpen(true)}
+              aria-label="Mở hàng đợi"
+              title="Hàng đợi"
+            >
+              <IQueue />
             </button>
 
             <button
@@ -389,23 +545,24 @@ export default function Player() {
               title={muted || volume === 0 ? "Unmute (M)" : "Mute (M)"}
               aria-pressed={muted || volume === 0}
             >
-              {muted || volume === 0 ? (
-                <FaVolumeXmark size={18} />
-              ) : (
-                <FaVolumeHigh size={18} />
-              )}
+              {muted || volume === 0 ? <IMute /> : <IVol />}
             </button>
 
-            <input
-              className="vol"
-              type="range"
-              min={0}
-              max={1}
-              step="0.01"
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-              aria-label="Volume"
-            />
+            <div className="range -volume" style={{ "--pct": volumePct }}>
+              <div className="range-track" />
+              <div className="range-fill" />
+              <div className="range-knob" />
+              <input
+                className="range-input"
+                type="range"
+                min={0}
+                max={1}
+                step="0.01"
+                value={volume}
+                onChange={(e) => setVolume(Number(e.target.value))}
+                aria-label="Volume"
+              />
+            </div>
           </div>
 
           {/* audio tag */}
@@ -420,6 +577,53 @@ export default function Player() {
           />
         </div>
       </div>
+
+      {/* Picker thả nổi để chọn playlist */}
+      {showPicker && (
+        <div style={pickerStyle} onMouseLeave={() => setShowPicker(false)}>
+          <div style={{ fontWeight: 700, margin: "4px 6px 6px" }}>
+            Thêm vào playlist
+          </div>
+          {loadingPL ? (
+            <div style={{ opacity: 0.8, padding: "6px 6px 8px" }}>
+              Đang tải…
+            </div>
+          ) : playlists.length ? (
+            <div style={{ display: "grid", gap: 6 }}>
+              {playlists.map((pl) => (
+                <button
+                  key={pl._id || pl.id}
+                  onClick={() => addCurrentTo(pl)}
+                  style={{
+                    textAlign: "left",
+                    border: 0,
+                    background: "transparent",
+                    color: "inherit",
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.06)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                  title={pl.title || pl.name}
+                >
+                  {pl.title || pl.name || "Playlist"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ opacity: 0.8, padding: "6px 6px 8px" }}>
+              Bạn chưa có playlist.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* overlays */}
       <QueuePanel />

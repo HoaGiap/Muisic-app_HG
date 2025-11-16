@@ -177,11 +177,11 @@ const backdrop = {
 const panel = {
   width: "min(720px, 92vw)",
   height: "min(70vh, 520px)",
-  background: "var(--bg, #fff)",
-  color: "var(--fg, #111)",
+  background: "var(--card,#0f141b)",
+  color: "var(--text,#f1f5f9)",
   borderRadius: 12,
   padding: 12,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
   display: "flex",
   flexDirection: "column",
 };
@@ -189,7 +189,7 @@ const scrollArea = {
   overflow: "auto",
   flex: 1,
   padding: "6px 4px",
-  border: "1px solid #eee",
+  border: "1px solid var(--border,#1f2a37)",
   borderRadius: 8,
-  background: "rgba(0,0,0,0.03)",
+  background: "var(--bg,#05070b)",
 };

@@ -61,7 +61,6 @@ export default function Login() {
     <div className="auth-screen">
       <div className="auth-card">
         <h1 className="auth-title">Đăng nhập</h1>
-        <p className="auth-subtitle">Chào mừng quay lại 👋</p>
 
         <form className="auth-form" onSubmit={submit}>
           <label className="auth-label">

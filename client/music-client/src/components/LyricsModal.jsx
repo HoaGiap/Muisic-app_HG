@@ -1,5 +1,6 @@
 // client/src/components/LyricsModal.jsx
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import toast from "react-hot-toast";
 
@@ -91,7 +92,7 @@ export default function LyricsModal({ open, onClose, song }) {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div style={backdrop} onClick={onClose}>
       <div style={panel} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -154,7 +155,8 @@ export default function LyricsModal({ open, onClose, song }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -170,8 +172,8 @@ const backdrop = {
 };
 
 const panel = {
-  background: "var(--bg,#fff)",
-  color: "var(--fg,#111)",
+  background: "var(--card,#0f141b)",
+  color: "var(--text,#f1f5f9)",
   width: "min(820px, 100%)",
   borderRadius: 12,
   padding: 16,
@@ -183,6 +185,8 @@ const ta = {
   fontFamily: "inherit",
   fontSize: 14,
   padding: 8,
-  border: "1px solid #ddd",
+  background: "var(--bg,#05070b)",
+  color: "var(--text,#f1f5f9)",
+  border: "1px solid var(--border,#243043)",
   borderRadius: 8,
 };

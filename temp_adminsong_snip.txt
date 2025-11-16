@@ -1,6 +1,5 @@
 // client/src/pages/AdminSong.jsx
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   searchSongs,
@@ -46,8 +45,6 @@ function SongSearch({ onPick, onDelete, refreshKey = 0 }) {
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
   const [menuFor, setMenuFor] = useState(null);
-  const [menuSong, setMenuSong] = useState(null);
-  const [menuPos, setMenuPos] = useState({ left: 0, top: 0 });
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -76,11 +73,11 @@ function SongSearch({ onPick, onDelete, refreshKey = 0 }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm bài hát theo tên / nghệ sĩ..."
+          placeholder="T�m b�i h�t theo t�n / ngh? si..."
           style={{ ...inputStyle, flex: 1, minWidth: 220 }}
         />
         <Link to="/upload" style={accentButtonStyle}>
-          + Thêm bài hát
+          + Th�m b�i h�t
         </Link>
       </div>
       <div style={{ overflowX: "auto", paddingBottom: 4 }}>
@@ -126,73 +123,44 @@ function SongSearch({ onPick, onDelete, refreshKey = 0 }) {
                 onClick={(e) => {
                   e.stopPropagation();
                   const id = s._id || s.id;
-                  if (menuFor === id) {
-                    setMenuFor(null);
-                    return;
-                  }
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const menuWidth = 150;
-                  const menuHeight = 80;
-                  const viewportWidth =
-                    window.innerWidth || document.documentElement.clientWidth;
-                  const viewportHeight =
-                    window.innerHeight || document.documentElement.clientHeight;
-                  const left = Math.max(
-                    8,
-                    Math.min(
-                      rect.right - menuWidth,
-                      viewportWidth - menuWidth - 8
-                    )
-                  );
-                  const topCandidate = rect.bottom + 8;
-                  const top =
-                    topCandidate + menuHeight > viewportHeight
-                      ? rect.top - 8 - menuHeight
-                      : topCandidate;
-                  setMenuPos({ left, top });
-                  setMenuSong(s);
-                  setMenuFor(id);
+                  setMenuFor((prev) => (prev === id ? null : id));
                 }}
               >
-                ⋮
+                ?
               </button>
+              {menuFor === (s._id || s.id) ? (
+                <div
+                  className="song-card-menu"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => {
+                      onPick(s);
+                      setMenuFor(null);
+                    }}
+                  >
+                    Ch?nh s?a
+                  </button>
+                  <button
+                    className="danger"
+                    onClick={() => {
+                      setMenuFor(null);
+                      onDelete?.(s);
+                    }}
+                  >
+                    X�a
+                  </button>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
       </div>
-      {menuFor && menuSong
-        ? createPortal(
-            <div
-              className="song-card-menu"
-              style={{ left: menuPos.left, top: menuPos.top }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => {
-                  onPick(menuSong);
-                  setMenuFor(null);
-                }}
-              >
-                Chỉnh sửa
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  setMenuFor(null);
-                  onDelete?.(menuSong);
-                }}
-              >
-                Xóa
-              </button>
-            </div>,
-            document.body
-          )
-        : null}
     </div>
   );
 }
 
-/* ---------------- Tab Thông tin ---------------- */
+/* ---------------- Tab Th?ng tin ---------------- */
 function InfoTab({ state, onSave, onDelete }) {
   const {
     title,
@@ -242,7 +210,7 @@ function InfoTab({ state, onSave, onDelete }) {
 
   return (
     <div style={{ ...panelStyle }}>
-      <h3 style={{ marginTop: 0 }}>Thông tin bài hát</h3>
+      <h3 style={{ marginTop: 0 }}>Th�ng tin b�i h�t</h3>
       <div style={{ display: "flex", gap: 16 }}>
         <img
           src={coverUrl || "/logosite.png"}
@@ -251,9 +219,9 @@ function InfoTab({ state, onSave, onDelete }) {
           height={140}
           style={{ borderRadius: 12, objectFit: "cover" }}
         />
-        <div style={{ display: "grid", gap: 8, flex: 0.98 }}>
+        <div style={{ display: "grid", gap: 8, flex: 1 }}>
           <label>
-            Tiêu đề
+            Ti�u d?
             <br />
             <input
               value={title}
@@ -263,7 +231,7 @@ function InfoTab({ state, onSave, onDelete }) {
           </label>
 
           <label>
-            Nghệ sĩ (hiển thị)
+            Ngh? si (hi?n th?)
             <br />
             <input
               value={artistName}
@@ -273,19 +241,19 @@ function InfoTab({ state, onSave, onDelete }) {
           </label>
 
           <label>
-            Gán nghệ sĩ (artistId)
+            G�n ngh? si (artistId)
             <br />
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={artistQuery}
                 onChange={(e) => setArtistQuery(e.target.value)}
-                placeholder="Tìm nghệ sĩ để gán..."
+                placeholder="T?m ngh? s? ?? g?n..."
                 style={{ ...inputStyle, flex: 1 }}
               />
               <input
                 value={artistId}
                 onChange={(e) => setArtistId(e.target.value)}
-                placeholder="hoặc dán artistId"
+                placeholder="ho?c d?n artistId"
                 style={{ ...inputStyle, maxWidth: 260 }}
               />
             </div>
@@ -336,7 +304,7 @@ function InfoTab({ state, onSave, onDelete }) {
             style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}
           >
             <label>
-              Ảnh bìa
+              ?nh b�a
               <br />
               <input type="file" accept="image/*" onChange={pickCover} />
             </label>
@@ -350,14 +318,12 @@ function InfoTab({ state, onSave, onDelete }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "200px 180px 120px",
-              columnGap: 74,
-              rowGap: 16,
-              alignItems: "end",
+              gap: 8,
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
             }}
           >
             <label>
-              Thời lượng (s)
+              Th?i l??ng (s)
               <br />
               <input
                 type="number"
@@ -376,16 +342,7 @@ function InfoTab({ state, onSave, onDelete }) {
                 style={inputStyle}
               />
             </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                padding: "10px 12px",
-              }}
-            >
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <input
                 type="checkbox"
                 checked={isPublic}
@@ -396,12 +353,12 @@ function InfoTab({ state, onSave, onDelete }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button onClick={onSave}>Lưu bài hát</button>
+            <button onClick={onSave}>L?u b?i h?t</button>
             <button
               onClick={onDelete}
               style={{ background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}
             >
-              Xóa
+              X?a
             </button>
           </div>
         </div>
@@ -473,12 +430,12 @@ export default function AdminSong() {
     const songId = song._id || song.id;
     if (!songId) return;
     const ok = confirm(
-      `Xóa bài: "${song.title || "Không tên"}"? Hành động không thể hoàn tác.`
+      `X?a b?i: "${song.title || "Kh?ng t?n"}"? H?nh ??ng kh?ng th? ho?n t?c.`
     );
     if (!ok) return;
     try {
       await deleteSongById(songId);
-      alert("Đã xóa bài hát");
+      alert("?? x?a b?i h?t");
       setShowLyrics(false);
       if (detail?.song?._id === songId) {
         setDetail(null);
@@ -486,7 +443,7 @@ export default function AdminSong() {
       }
       setSearchRefresh((v) => v + 1);
     } catch (e) {
-      alert(e?.response?.data?.error || e.message || "Xóa thất bại");
+      alert(e?.response?.data?.error || e.message || "X?a th?t b?i");
     }
   };
 
@@ -520,7 +477,7 @@ export default function AdminSong() {
 
   return (
     <div style={{ display: "grid", gap: 16, padding: 16 }}>
-      <h2>Quản trị bài hát</h2>
+      <h2>Qu�n tr? b�i h�t</h2>
       <SongSearch
         onPick={setPicked}
         onDelete={deleteSong}
@@ -529,7 +486,7 @@ export default function AdminSong() {
 
       {!detail ? (
         <div style={{ opacity: 0.7 }}>
-          (Chọn bài hát để xem chi tiết và chỉnh sửa)
+          (Ch?n b�i h�t d? xem chi ti?t v� ch?nh s?a)
         </div>
       ) : (
         <>
@@ -543,7 +500,7 @@ export default function AdminSong() {
                 background: tab === "info" ? "rgba(0,0,0,.06)" : "var(--card)",
               }}
             >
-              Thông tin
+              Th�ng tin
             </button>
             <button
               onClick={() => setShowLyrics(true)}
@@ -554,7 +511,7 @@ export default function AdminSong() {
                 background: "rgba(0,0,0,.06)",
               }}
             >
-              Lưu bài hát
+              Luu b�i h�t
             </button>
           </div>
 
