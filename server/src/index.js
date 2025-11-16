@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import "dotenv/config";
 import cors from "cors";
 import morgan from "morgan";
-
+import "./firebaseAdmin.js"; // Khởi tạo Firebase Admin SDK
 // ✅ routes
 import songsRoutes from "./routes/songs.js"; // (hoặc song.routes.js đã chỉnh sửa)
 import playlistRoutes from "./routes/playlist.routes.js";

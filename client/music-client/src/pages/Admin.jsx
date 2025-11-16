@@ -69,7 +69,7 @@ export default function Admin() {
   const onToggleAdmin = async (u) => {
     const newVal = !u.admin;
     try {
-      await api.post("/admin/set-admin", { uid: u.uid, admin: newVal });
+      await api.post(`/admin/users/${u.uid}/admin`, { isAdmin: newVal });
       setItems((arr) =>
         arr.map((x) => (x.uid === u.uid ? { ...x, admin: newVal } : x))
       );
@@ -83,7 +83,7 @@ export default function Admin() {
   const onToggleDisabled = async (u) => {
     const newVal = !u.disabled;
     try {
-      await api.post("/admin/disable", { uid: u.uid, disabled: newVal });
+      await api.post(`/admin/users/${u.uid}/disabled`, { disabled: newVal });
       setItems((arr) =>
         arr.map((x) => (x.uid === u.uid ? { ...x, disabled: newVal } : x))
       );
@@ -97,7 +97,7 @@ export default function Admin() {
   const onRevokeTokens = async (u) => {
     if (!confirm(`Thu hồi phiên đăng nhập của ${u.email || u.uid}?`)) return;
     try {
-      await api.post("/admin/revoke", { uid: u.uid });
+      await api.post(`/admin/users/${u.uid}/revoke`);
       t.ok("Đã thu hồi, người dùng sẽ phải đăng nhập lại.");
     } catch (e) {
       console.error(e);
