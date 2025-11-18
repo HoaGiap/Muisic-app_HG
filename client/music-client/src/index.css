@@ -463,7 +463,7 @@ section {
 .song-card .cover-wrap {
   position: relative;
   border-radius: 10px;
-  overflow: visible;
+  overflow: hidden; /* ensure image stays inside rounded corner */
   cursor: pointer;
 }
 .song-card .cover-wrap img,
@@ -471,8 +471,10 @@ section {
   width: 100%;
   aspect-ratio: 1/1;
   object-fit: cover;
-  background: #ddd;
+  background: #0e1620;
   border-radius: inherit;
+  display: block;
+  box-sizing: border-box;
 }
 /* Play tròn giữa ảnh */
 .song-card .play-overlay {

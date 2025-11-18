@@ -6,7 +6,7 @@ import { getAuth } from "firebase/auth";
 function useIsAdmin() {
   try {
     const u = getAuth().currentUser;
-    // tuỳ app: bạn có thể đọc từ u.customClaims?.admin, hoặc local storage
+   
     return !!(u && (u.admin || u.isAdmin || u?.stsTokenManager));
   } catch {
     return false;
