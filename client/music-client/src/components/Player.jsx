@@ -492,10 +492,7 @@ export default function Player() {
 
             <div className="progress">
               <span>{fmt(progress)}</span>
-              <div
-                className="range -progress"
-                style={{ "--pct": progressPct }}
-              >
+              <div className="range -progress" style={{ "--pct": progressPct }}>
                 <div className="range-track" />
                 <div className="range-fill" />
                 <div className="range-knob" />

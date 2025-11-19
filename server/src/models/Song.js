@@ -8,6 +8,7 @@ const SongSchema = new mongoose.Schema(
       required: [true, "Thiếu tiêu đề bài hát"],
       trim: true,
     },
+
     artist: {
       type: String, // vẫn giữ chuỗi để tương thích dữ liệu cũ
       required: [true, "Thiếu tên ca sĩ"],
@@ -17,6 +18,7 @@ const SongSchema = new mongoose.Schema(
     coverUrl: { type: String, default: "" },
     lyrics: {
       text: { type: String, default: "" },
+      lrc: { type: String, default: "" },
       language: { type: String, default: "" },
       updatedAt: { type: Date },
     },

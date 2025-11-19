@@ -396,7 +396,7 @@ function InfoTab({ state, onSave, onDelete }) {
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button onClick={onSave}>Lưu bài hát</button>
+            <button onClick={onSave}> Lưu bài hát </button>
             <button
               onClick={onDelete}
               style={{ background: "rgba(248,113,113,0.15)", color: "#fca5a5" }}
@@ -554,7 +554,7 @@ export default function AdminSong() {
                 background: "rgba(0,0,0,.06)",
               }}
             >
-              Lưu bài hát
+              Sửa lời bài hát
             </button>
           </div>
 
