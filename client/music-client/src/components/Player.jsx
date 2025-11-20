@@ -390,6 +390,14 @@ export default function Player() {
     Math.min(Math.max(val / (max || 1), 0), 1);
   const progressPct = duration ? normalize(progress, duration) : 0;
   const volumePct = Number.isFinite(volume) ? normalize(volume, 1) : 0;
+  const shuffleButtonClass = `icon${shuffle ? " icon--accent" : ""}`;
+  const repeatButtonClass =
+    "icon" +
+    (repeat === "oneOnce"
+      ? " icon--accent"
+      : repeat === "oneLoop"
+      ? " icon--accent-outline"
+      : "");
 
   // v��< trA- picker (th��� n��i) tA-nh theo nA�t +
   const pickerStyle = useMemo(() => {
@@ -454,7 +462,7 @@ export default function Player() {
           <div className="center">
             <div className="buttons">
               <button
-                className={"icon" + (shuffle ? " is-active" : "")}
+                className={shuffleButtonClass}
                 title={shuffle ? "Shuffle: On" : "Shuffle: Off"}
                 aria-pressed={shuffle}
                 onClick={() => setShuffle((s) => !s)}
@@ -488,7 +496,7 @@ export default function Player() {
               </button>
 
               <button
-                className={"icon" + (repeat !== "list" ? " is-active" : "")}
+                className={repeatButtonClass}
                 title={
                   repeat === "list"
                     ? "Repeat: Off"
@@ -507,7 +515,14 @@ export default function Player() {
                   )
                 }
               >
-                <IRepeat />
+                <span className="repeat-icon">
+                  <IRepeat />
+                  {repeat === "oneOnce" && (
+                    <span className="repeat-badge" aria-hidden="true">
+                      1
+                    </span>
+                  )}
+                </span>
               </button>
             </div>
 
