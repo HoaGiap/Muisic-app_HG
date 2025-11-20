@@ -56,7 +56,7 @@ function AppLayout({ user, isAdmin, theme, setTheme, doLogout }) {
         <header>
           <div
             style={{
-              padding: "20px var(--page-x, 24px)",
+              padding: "10px var(--page-x, 24px)",
               display: "flex",
               alignItems: "center",
               gap: 12,

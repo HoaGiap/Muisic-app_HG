@@ -14,6 +14,7 @@ import {
   progressAtom,
   durationAtom,
   lyricsOpenAtom,
+  seekRequestAtom,
 } from "./playerState";
 import QueuePanel from "./QueuePanel";
 import LyricsPanel from "./LyricsPanel";
@@ -123,6 +124,7 @@ export default function Player() {
   const [progress, setProgress] = useAtom(progressAtom);
   const [duration, setDuration] = useAtom(durationAtom);
   const [, setLyricsOpen] = useAtom(lyricsOpenAtom);
+  const [seekRequest, setSeekRequest] = useAtom(seekRequestAtom);
 
   const audioRef = useRef(null);
   const repeatOnceRef = useRef(0);
@@ -260,6 +262,25 @@ export default function Player() {
     onTimeUpdate();
     restoreResume();
   };
+
+  useEffect(() => {
+    if (!seekRequest || typeof seekRequest.time !== "number") return;
+    const a = audioRef.current;
+    if (!a) return;
+    const desired = Math.max(0, Number(seekRequest.time) || 0);
+    const rawDuration =
+      (Number.isFinite(a.duration) && a.duration > 0
+        ? a.duration
+        : Number.isFinite(duration) && duration > 0
+        ? duration
+        : null) || null;
+    const limit =
+      rawDuration === null ? null : Math.max(rawDuration - 0.01, 0);
+    const target = limit === null ? desired : Math.min(desired, limit);
+    a.currentTime = target;
+    setProgress(target);
+    setSeekRequest(null);
+  }, [seekRequest, duration, setSeekRequest, setProgress]);
 
   // Next/Prev
   const goNext = (manual = false) => {

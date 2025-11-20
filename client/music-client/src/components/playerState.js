@@ -14,6 +14,7 @@ export const queueOpenAtom = atom(false);
 export const progressAtom = atom(0); // ⏱️ giây hiện tại
 export const durationAtom = atom(0); // ⏱️ tổng
 export const lyricsOpenAtom = atom(false);
+export const seekRequestAtom = atom(null);
 // âm lượng (0..1) – đọc/lưu localStorage
 const v =
   typeof window !== "undefined" ? Number(localStorage.getItem("vol")) : 1;
