@@ -260,33 +260,31 @@ function ToolbarTable({
         </table>
       </div>
 
-      {menuFor && menuAlbum
-        ? (
-            <div
-              className="song-card-menu"
-              style={{ left: menuPos.left, top: menuPos.top }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => {
-                  onSelect(menuAlbum);
-                  setMenuFor(null);
-                }}
-              >
-                Chỉnh sửa
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  setMenuFor(null);
-                  onDelete(menuAlbum);
-                }}
-              >
-                Xóa
-              </button>
-            </div>
-          )
-        : null}
+      {menuFor && menuAlbum ? (
+        <div
+          className="song-card-menu"
+          style={{ left: menuPos.left, top: menuPos.top }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              onSelect(menuAlbum);
+              setMenuFor(null);
+            }}
+          >
+            Chỉnh sửa
+          </button>
+          <button
+            className="danger"
+            onClick={() => {
+              setMenuFor(null);
+              onDelete(menuAlbum);
+            }}
+          >
+            Xóa
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -435,7 +433,11 @@ function CreateAlbumPanel({ open, onClose, onCreated }) {
         </div>
       </label>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={handleCreate} style={accentButtonStyle} disabled={saving}>
+        <button
+          onClick={handleCreate}
+          style={accentButtonStyle}
+          disabled={saving}
+        >
           {saving ? "Đang tạo..." : "Tạo album"}
         </button>
       </div>
@@ -538,14 +540,22 @@ function AlbumEditorPanel({ album, onSaved, onDeleted }) {
           height={160}
           style={{ borderRadius: 16, objectFit: "cover" }}
         />
-        <div style={{ display: "grid", gap: 10, flex: 1, minWidth: 260 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            flex: 1,
+            minWidth: 260,
+            maxWidth: 1200,
+          }}
+        >
           <label>
             Tiêu đề
             <br />
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, flex: 1, minWidth: 200 }}
             />
           </label>
           <label>
@@ -557,12 +567,12 @@ function AlbumEditorPanel({ album, onSaved, onDeleted }) {
                 placeholder="Tìm nghệ sĩ..."
                 style={{ ...inputStyle, flex: 1, minWidth: 200 }}
               />
-              <input
+              {/* <input
                 value={artistId}
                 onChange={(e) => setArtistId(e.target.value)}
                 placeholder="hoặc dán artistId"
                 style={{ ...inputStyle, maxWidth: 240 }}
-              />
+              /> */}
             </div>
             <ArtistMatches
               results={artistResults}
@@ -580,7 +590,7 @@ function AlbumEditorPanel({ album, onSaved, onDeleted }) {
               type="date"
               value={releaseDate}
               onChange={(e) => setReleaseDate(e.target.value)}
-              style={inputStyle}
+              style={{ display: "grid", gap: 10, flex: 1, minWidth: 300 }}
             />
           </label>
           <label>

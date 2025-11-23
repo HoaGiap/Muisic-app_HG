@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { register as registerUser } from "../auth/firebase";
-import { api } from "../api";
+import { api, uploadImage } from "../api";
 import { t } from "../ui/toast";
 import "../styles/auth.css";
 
@@ -38,13 +38,50 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAvatarFile(null);
+      setAvatarPreview("");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      t?.err?.("Chi nhan file anh.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      t?.err?.("Anh toi da 5MB.");
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await registerUser(email.trim(), pw);
+      let avatarUrl = "";
+      if (avatarFile) {
+        setUploading(true);
+        const uploaded = await uploadImage(
+          avatarFile,
+          "music-app/user-avatars"
+        );
+        avatarUrl = uploaded?.url || "";
+        if (!avatarUrl) throw new Error("Khong lay duoc anh dai dien.");
+      }
+
+      await registerUser(email.trim(), pw, {
+        displayName: displayName.trim() || undefined,
+        photoURL: avatarUrl || undefined,
+      });
       // Đồng bộ user vào DB (bỏ qua lỗi nếu có)
       await api.post("/me/sync").catch(() => {});
       t?.ok?.("Đăng ký thành công!");
@@ -53,6 +90,7 @@ export default function Register() {
       console.error(err);
       t?.err?.("Đăng ký thất bại: " + (err?.message || "Lỗi không xác định"));
     } finally {
+      setUploading(false);
       setBusy(false);
     }
   };
@@ -76,6 +114,54 @@ export default function Register() {
               placeholder="you@example.com"
             />
           </label>
+
+          <label className="auth-label">
+            Ten hien thi
+            <input
+              className="auth-input"
+              type="text"
+              autoComplete="name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Ten se hien tren giao dien"
+            />
+          </label>
+
+          {/* <div className="avatar-picker">
+            <p className="avatar-picker__label">Anh dai dien (tuy chon)</p>
+            <div className="avatar-preview">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar preview" />
+              ) : (
+                <span className="-empty">Chua chon anh</span>
+              )}
+            </div>
+            {avatarFile ? (
+              <div className="file-chip">
+                <span>{avatarFile.name}</span>
+                <button
+                  type="button"
+                  aria-label="Xoa anh"
+                  onClick={() => {
+                    setAvatarFile(null);
+                    setAvatarPreview("");
+                  }}
+                >
+                  x
+                </button>
+              </div>
+            ) : null} */}
+          {/* <input
+              className="avatar-picker__file"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              disabled={busy}
+            />
+            {uploading ? (
+              <small style={{ opacity: 0.8 }}>Dang tai anh len...</small>
+            ) : null}
+          </div> */}
 
           <label className="auth-label">
             Mật khẩu (≥6)

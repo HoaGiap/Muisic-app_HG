@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendEmailVerification,
+  updateProfile,
 } from "firebase/auth";
 
 // Cấu hình Firebase (đảm bảo các biến môi trường này có trong .env)
@@ -40,8 +41,21 @@ export const getIdToken = () => _idToken;
 // ======================================
 // 🔑 Helpers
 // ======================================
-export async function register(email, password) {
+export async function register(email, password, profile = {}) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+  // Cap nhat ten hien thi / avatar neu UI co gui len
+  try {
+    const { displayName, photoURL } = profile || {};
+    if (displayName || photoURL) {
+      await updateProfile(cred.user, {
+        displayName: displayName || cred.user.displayName,
+        photoURL: photoURL || cred.user.photoURL,
+      });
+    }
+  } catch (err) {
+    console.warn("Khong cap nhat duoc profile:", err?.message || err);
+  }
 
   // ✅ Tự động gửi email xác thực (không bắt buộc nhưng nên có)
   try {
