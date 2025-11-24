@@ -156,7 +156,7 @@ export default function Home() {
           gap: 8,
           background: "var(--card)",
           border: "1px solid var(--border)",
-          borderRadius: 12,
+          borderRadius: 50,
           padding: 10,
           maxWidth: 640,
           marginBottom: 32,
@@ -167,7 +167,7 @@ export default function Home() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && goSearch()}
           placeholder="Tìm bài hát, nghệ sĩ, album…"
-          style={{ flex: 1, borderRadius: 10 }}
+          style={{ flex: 1, borderRadius: 50 }}
           aria-label="Tìm kiếm"
         />
         <button

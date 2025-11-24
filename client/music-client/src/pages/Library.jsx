@@ -1,5 +1,5 @@
 // src/pages/Library.jsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "../api";
 import SongItem from "../components/SongItem.jsx";
 import PlaylistSidebar from "../components/PlaylistSidebar.jsx";
@@ -275,16 +275,31 @@ export default function Library() {
   const selId = selected?._id;
   const songs = selected?.songs || [];
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     const r = await api.get("/playlists");
-    setAll(r.data || []);
-    setSelected((cur) => (cur ? cur : r.data?.[0] || null));
-  };
+    const list = r.data || [];
+    setAll(list);
+    setSelected((cur) => {
+      if (!cur) return list[0] || null;
+      const found = list.find((p) => p._id === cur._id);
+      return found || list[0] || null;
+    });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     loadAll().finally(() => setLoading(false));
-  }, []);
+  }, [loadAll]);
+
+  const handleCreated = useCallback(
+    async (p) => {
+      setAll((ls) => [p, ...ls]);
+      setSelected(p);
+      setSidebarRefresh((k) => k + 1);
+      await loadAll();
+    },
+    [loadAll]
+  );
 
   const handleSelect = (p) => setSelected(p);
 
@@ -527,10 +542,7 @@ export default function Library() {
             .filter(Boolean)
             .slice(0, 4) || []
         }
-        onCreated={(p) => {
-          setAll((ls) => [p, ...ls]);
-          setSelected(p);
-        }}
+        onCreated={handleCreated}
       />
     </div>
   );
