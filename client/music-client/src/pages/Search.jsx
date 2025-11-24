@@ -176,7 +176,7 @@ export default function Search() {
           gap: 8,
           background: "var(--card)",
           border: "1px solid var(--border)",
-          borderRadius: 12,
+          borderRadius: 50,
           padding: 10,
           maxWidth: 640,
           marginBottom: 24,
@@ -188,7 +188,7 @@ export default function Search() {
           onKeyDown={(e) => e.key === "Enter" && commitToUrl()}
           placeholder="Nhập tên bài hát, nghệ sĩ hoặc album…"
           aria-label="Tìm kiếm"
-          style={{ flex: 1, borderRadius: 10 }}
+          style={{ flex: 1, borderRadius: 50 }}
         />
         <button
           className="icon-only"

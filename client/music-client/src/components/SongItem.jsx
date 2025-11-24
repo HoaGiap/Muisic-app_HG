@@ -53,10 +53,7 @@ export default function SongItem({
     menuPositioned.current = false;
     const rect = evt.currentTarget.getBoundingClientRect();
     const pad = 12;
-    const left = Math.min(
-      Math.max(pad, rect.left),
-      window.innerWidth - 220
-    );
+    const left = Math.min(Math.max(pad, rect.left), window.innerWidth - 220);
     const top = Math.min(
       Math.max(pad, rect.bottom + 8),
       window.innerHeight - 180
@@ -64,7 +61,6 @@ export default function SongItem({
     setMenuCoords({ left, top });
     setMenuOpen(true);
   };
-
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -279,7 +275,7 @@ export default function SongItem({
         <button onClick={playNow}>▶ Phát</button>
         <button onClick={addToQueue}>＋ Queue</button>
         <button onClick={() => setOpenPicker(true)}>＋ Playlist…</button>
-        <button onClick={() => setOpenLyrics(true)}>🎼 Lyrics</button>
+        {/* <button onClick={() => setOpenLyrics(true)}>🎼 Lyrics</button> */}
         <button onClick={() => setOpenLyricsEditor(true)}>📝 Lời…</button>
         {onDelete && (
           <button onClick={() => onDelete(song._id || song.id)}>🗑️ Xoá</button>
