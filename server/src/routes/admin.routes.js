@@ -4,6 +4,7 @@ import admin from "firebase-admin";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 import Song from "../models/Song.js";
 import Playlist from "../models/Playlist.js";
+import User from "../models/User.js";
 import { audit } from "../utils/audit.js";
 
 const router = Router();
@@ -205,6 +206,121 @@ router.post(
       });
     } catch (e) {
       console.error("transfer error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/stats/overview
+ * - usersPerDay: mA?i ngA?y trong kho?ng (default 14 ngA?y)
+ * - topSongsWeek: top bA?i hA?t theo plays trong 7 ngA?y qua (d?a trA?n updatedAt)
+ * - bandwidth: ???ng d?ng l??ng ???c ???c ??c (??nh giA? theo plays * duration * bitrate)
+ */
+router.get(
+  "/stats/overview",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const daysParam = parseInt(req.query.days, 10);
+      const days = Math.min(60, Math.max(1, isNaN(daysParam) ? 14 : daysParam));
+
+      // ===== New users per day =====
+      const start = new Date();
+      start.setUTCHours(0, 0, 0, 0);
+      start.setUTCDate(start.getUTCDate() - (days - 1));
+
+      const usersAgg = await User.aggregate([
+        { $match: { createdAt: { $gte: start } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+                timezone: "UTC",
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+
+      const userMap = new Map(usersAgg.map((u) => [u._id, u.count]));
+      const usersPerDay = [];
+      for (let i = 0; i < days; i++) {
+        const d = new Date(start);
+        d.setUTCDate(start.getUTCDate() + i);
+        const key = d.toISOString().slice(0, 10);
+        usersPerDay.push({ date: key, count: userMap.get(key) || 0 });
+      }
+
+      // ===== Top songs in the last 7 days (by plays/playCount) =====
+      const weekAgo = new Date();
+      weekAgo.setUTCDate(weekAgo.getUTCDate() - 7);
+
+      const topSongsRaw = await Song.aggregate([
+        { $match: { updatedAt: { $gte: weekAgo } } },
+        {
+          $project: {
+            title: 1,
+            artist: 1,
+            coverUrl: 1,
+            plays: {
+              $ifNull: ["$plays", { $ifNull: ["$playCount", 0] }],
+            },
+          },
+        },
+        { $sort: { plays: -1 } },
+        { $limit: 10 },
+      ]);
+
+      const topSongsWeek = topSongsRaw.map((s) => ({
+        id: s._id,
+        title: s.title,
+        artist: s.artist,
+        coverUrl: s.coverUrl || "",
+        plays: s.plays || 0,
+      }));
+
+      // ===== Bandwidth estimation (plays * duration * 128 kbps) =====
+      const bwAgg = await Song.aggregate([
+        {
+          $project: {
+            plays: {
+              $ifNull: ["$plays", { $ifNull: ["$playCount", 0] }],
+            },
+            duration: { $ifNull: ["$duration", 0] }, // seconds
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalPlays: { $sum: "$plays" },
+            totalSeconds: { $sum: { $multiply: ["$plays", "$duration"] } },
+          },
+        },
+      ]);
+
+      const bitrateKbps = 128;
+      const totalPlays = bwAgg?.[0]?.totalPlays || 0;
+      const totalSeconds = bwAgg?.[0]?.totalSeconds || 0;
+      const totalBytes = totalSeconds * ((bitrateKbps * 1000) / 8);
+
+      res.json({
+        usersPerDay,
+        topSongsWeek,
+        bandwidth: {
+          totalBytes,
+          totalGB: totalBytes / 1024 / 1024 / 1024,
+          totalPlays,
+          bitrateKbps,
+        },
+      });
+    } catch (e) {
+      console.error("stats overview error:", e);
       res.status(500).json({ error: e.message });
     }
   }

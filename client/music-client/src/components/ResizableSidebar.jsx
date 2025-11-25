@@ -39,6 +39,12 @@ const ILibrary = () => (
     <path d="M21 20V4" />
   </Ico>
 );
+const IChart = () => (
+  <Ico>
+    <path d="M3 3v18h18" />
+    <path d="m7 14 4-5 4 4 3-6" />
+  </Ico>
+);
 const IDashboard = () => (
   <Ico>
     <rect x="3" y="3" width="8" height="8" rx="2" />
@@ -175,6 +181,18 @@ export default function ResizableSidebar({
           {isAdmin && (
             <>
               <div className="side-section">QUẢN LÝ</div>
+
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `side-item ${isActive ? "is-active" : ""}`
+                }
+              >
+                <span className="ico">
+                  <IChart />
+                </span>
+                <span className="txt">Dashboard</span>
+              </NavLink>
 
               <NavLink
                 to="/admin"

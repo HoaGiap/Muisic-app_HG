@@ -25,6 +25,7 @@ import Admin from "./pages/Admin.jsx";
 import AdminAlbum from "./pages/AdminAlbum.jsx";
 import AdminSong from "./pages/AdminSong.jsx";
 import AdminArtist from "./pages/AdminArtist.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 
 import QueuePanel from "./components/QueuePanel.jsx";
 import Player from "./components/Player.jsx";
@@ -285,6 +286,14 @@ function AppShell() {
           element={
             <AdminRoute>
               <AdminSong />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <AdminRoute>
+              <Dashboard />
             </AdminRoute>
           }
         />
